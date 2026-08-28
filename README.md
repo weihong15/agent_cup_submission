@@ -1,7 +1,12 @@
 # Funding Builders Cup — submission
 
 **Read this file first.** It is the whole install in one page; `INSTALL.md` is the detail
-behind step 1, and `verify_submission.py` proves the install worked.
+behind drop 1, and `verify_submission.py` proves the install worked.
+
+> **Three settings are not optional** and each fails quietly if skipped — see
+> [Before the race](#before-the-race--three-things-to-set):
+> **`bot_image`** must match your image tag, **`fill_guard`** must be started with
+> `arm=True`, and **leverage** must be set on both venues.
 
 
 Cross-venue funding arbitrage on Binance and Hyperliquid perpetuals. Delta-neutral perp_xemm:
@@ -73,36 +78,41 @@ skills/venue_rejects/SKILL.md         venue reject handling
 
 ---
 
-## Two things you must set
+## Before the race — three things to set
 
-`strategy.md` → `default_config.bot_image` currently reads `hummingbot/hummingbot:latest`.
+Everything else works out of the box. These three do not, and each fails quietly.
 
-**Set it to whatever you tagged the bot image**, or tag your build
-`hummingbot/hummingbot:latest` and change nothing.
+**1. `bot_image` must match your image tag.**
+
+`agent/strategies/perp_xemm_race/strategy.md` → `default_config.bot_image` currently reads
+`hummingbot/hummingbot:latest`. Either tag your build with that name, or change this one line
+to whatever you tagged.
 
 A mismatch is silent and fatal: the deploy *succeeds*, the container starts on an image with no
 `perp_xemm_executor`, and exits code 1. The only symptom is a bot that is not running.
 
-**2. Per-venue leverage.** Set it on both venues before the run - `leverage: 3` in
-`strategy.md` is what the agent assumes, but the controller has no leverage field and cannot
-set it. Cross-venue margin is not netted, so a large adverse move can liquidate the losing leg
-on one venue while the offsetting gain sits unrealised on the other.
+**2. Start `fill_guard` with `arm=True`.**
 
-Also worth knowing:
+```
+manage_routines(action="run", name="fill_guard", agent="funding_builders_cup",
+                config={"arm": True})
+```
 
-- **`fill_guard` is continuous, and must be started with `arm=True` for the race.**
+Start it alongside the agent and leave it running for the whole race. It is the only in-flight
+defence: between two 15-minute ticks it is the one thing that can stop a session filling at a
+negative spread, and it flips or kills the controller on its own.
 
-  ```
-  manage_routines(action="run", name="fill_guard", agent="funding_builders_cup",
-                  config={"arm": True})
-  ```
+It ships `arm=False` so a first run observes rather than acts. **That default is for
+install-time testing, not for the race** - left at `False` it reports and never intervenes.
 
-  Start it alongside the agent and leave it running for the whole race. It is the only
-  in-flight defence: between two 15-minute ticks it is the one thing that can stop a session
-  filling at a negative spread. It ships `arm=False` so that a first run observes rather than
-  acts - **that default is for install-time testing, not for the race.** Left at `False` it
-  reports and never intervenes.
-- **Leverage is a per-venue account setting**, not a controller field. Set it before the run.
+**3. Set leverage on both venues.**
+
+`leverage: 3` in `strategy.md` is what the agent assumes, but the perp_xemm controller has no
+leverage field and cannot set it - it is an account-level setting on each venue.
+
+Cross-venue margin is not netted, so a large adverse move can liquidate the losing leg on one
+venue while the offsetting gain sits unrealised on the other. This is the one realistic way the
+account goes to zero.
 
 ---
 
