@@ -61,30 +61,31 @@ class Config(BaseModel):
     flip_on_bleed: bool = Field(default=True, description='On a bleed, redeploy the same trade with the legs SWAPPED (rest on the other venue) instead of leaving the slot empty until the next tick.')
     max_flips_per_base: int = Field(default=1, description='Flips allowed per base per run. Stops maker/taker flip-flop.')
 
-def _vwap(cg) -> tuple[float, float]:
+def _vwap(ch) -> tuple[float, float]:
     """(vwap, total_base) over a list of {price, amount}."""
-    ab = sum((abs(float(t['amount'])) for t in cg))
+    ab = sum((abs(float(t['amount'])) for t in ch))
     if ab <= 0:
         return (0.0, 0.0)
-    bq = sum((abs(float(t['amount'])) * float(t['price']) for t in cg))
-    return (bq / ab, ab)
+    br = sum((abs(float(t['amount'])) * float(t['price']) for t in ch))
+    return (br / ab, ab)
 
-def _spread_bps(bd: float, cd: float, bc: bool) -> float:
+def _spread_bps(be: float, ce: float, bd: bool) -> float:
     """Realized cross-venue spread. Bought low / sold high is positive on both sides."""
-    if bd <= 0 or cd <= 0:
+    if be <= 0 or ce <= 0:
         return 0.0
-    if bc:
-        return (cd - bd) / bd * 10000.0
-    return (bd - cd) / bd * 10000.0
+    if bd:
+        return (ce - be) / be * 10000.0
+    return (be - ce) / be * 10000.0
 
 def _instance_roots(instances_dir: str) -> list[str]:
     if instances_dir:
-        bv = [instances_dir]
+        bw = [instances_dir]
     else:
-        bv = [os.environ.get('BOTS_PATH', '') and os.path.join(os.environ['BOTS_PATH'], 'bots', 'instances'), os.path.join(os.getcwd(), '..', 'hummingbot-api', 'bots', 'instances'), os.path.join(os.getcwd(), 'bots', 'instances'), os.path.expanduser('~/hummingbot-api/bots/instances')]
-    return [r for r in bv if r and os.path.isdir(r)]
+        ar = os.environ.get('BOTS_PATH', '')
+        bw = [os.path.join(ar, 'bots', 'instances') if ar else '', os.path.join(os.getcwd(), '..', 'hummingbot-api', 'bots', 'instances'), os.path.join(os.getcwd(), 'bots', 'instances'), os.path.expanduser('~/hummingbot-api/bots/instances')]
+    return [r for r in bw if r and os.path.isdir(r)]
 
-def _find_dbs(instances_dir: str, ba: set[str] | None, bf: float) -> tuple[list[str], list[str]]:
+def _find_dbs(instances_dir: str, bb: set[str] | None, bg: float) -> tuple[list[str], list[str]]:
     """(dbs worth judging, names skipped). Only sessions that could still be ACTED ON.
 
     The guard's single action is to kill a RUNNING controller. A finished session has nothing
@@ -97,37 +98,37 @@ def _find_dbs(instances_dir: str, ba: set[str] | None, bf: float) -> tuple[list[
     bots that are stopping. When that list cannot be fetched the fallback is file mtime, since a
     live session writes continuously; that is weaker but strictly better than reading everything.
     """
-    aq, by = ([], [])
-    bm = time.time()
-    for bu in _instance_roots(instances_dir):
-        for path in glob.glob(os.path.join(bu, '*', 'data', '*.sqlite')):
-            bk = os.path.basename(os.path.dirname(os.path.dirname(path)))
-            if ba is not None:
-                if bk in ba:
+    aq, bz = ([], [])
+    bn = time.time()
+    for bv in _instance_roots(instances_dir):
+        for path in glob.glob(os.path.join(bv, '*', 'data', '*.sqlite')):
+            bl = os.path.basename(os.path.dirname(os.path.dirname(path)))
+            if bb is not None:
+                if bl in bb:
                     aq.append(path)
                 else:
-                    by.append(bk)
+                    bz.append(bl)
                 continue
             try:
-                au = bm - os.path.getmtime(path) <= bf
+                av = bn - os.path.getmtime(path) <= bg
             except OSError:
-                au = False
-            (aq if au else by).append(path if au else bk)
-        if aq or by:
+                av = False
+            (aq if av else bz).append(path if av else bl)
+        if aq or bz:
             break
-    return (aq, by)
+    return (aq, bz)
 
 async def _live_bot_names(client) -> set[str] | None:
     """Bot names the API currently reports as active. None if it cannot be read."""
     try:
-        br = await client.bot_orchestration.get_active_bots_status()
-        an = (br.get('data') if isinstance(br, dict) else br) or {}
+        bs = await client.bot_orchestration.get_active_bots_status()
+        an = (bs.get('data') if isinstance(bs, dict) else bs) or {}
         return set(an.keys()) if isinstance(an, dict) else None
     except Exception as e:
         logger.warning('fill_guard: active-bot list unavailable (%s); falling back to mtime', e)
         return None
 
-def _read_fills(ap: str, bx: float) -> tuple[list[dict], str | None]:
+def _read_fills(ap: str, by: float) -> tuple[list[dict], str | None]:
     """TradeFill rows newer than `since_epoch`, as API-shaped dicts.
 
     READ-ONLY (`mode=ro`): the bot owns this file and is writing to it live. A writable
@@ -143,45 +144,45 @@ def _read_fills(ap: str, bx: float) -> tuple[list[dict], str | None]:
     dropping ORDER BY removes the sort - the caller volume-weights the rows, so their order
     is irrelevant.
     """
-    bw: list[dict] = []
+    bx: list[dict] = []
     try:
         aj = sqlite3.connect(f'file:{ap}?mode=ro', uri=True, timeout=5.0)
         try:
             ag = aj.execute('SELECT config_file_path FROM TradeFill LIMIT 1').fetchone()
             if not ag:
                 return ([], None)
-            am = aj.execute('SELECT market, symbol, trade_type, price, amount, timestamp FROM TradeFill WHERE config_file_path = ? AND timestamp >= ?', (ag[0], int(bx * 1000)))
-            for be, cc, ci, bp, aa, ch in am.fetchall():
-                bw.append({'connector_name': be, 'trading_pair': cc, 'trade_type': ci, 'price': float(bp), 'amount': float(aa), 'timestamp': ch})
+            am = aj.execute('SELECT market, symbol, trade_type, price, amount, timestamp FROM TradeFill WHERE config_file_path = ? AND timestamp >= ?', (ag[0], int(by * 1000)))
+            for bf, cd, cj, bq, aa, ci in am.fetchall():
+                bx.append({'connector_name': bf, 'trading_pair': cd, 'trade_type': cj, 'price': float(bq), 'amount': float(aa), 'timestamp': ci})
         finally:
             aj.close()
     except Exception as e:
         return ([], f'  !! could not read {os.path.basename(ap)}: {e}')
-    return (bw, None)
+    return (bx, None)
 
 async def _check_once(client, config: Config) -> tuple[list[str], list[dict]]:
     """One pass. Returns (report_lines, controllers_to_kill)."""
-    bm = time.time()
-    cb = bm - config.window_sec
-    ay, aw = ([], [])
-    az = await _live_bot_names(client)
-    aq, by = _find_dbs(config.instances_dir, az, config.max_stale_sec)
+    bn = time.time()
+    cc = bn - config.window_sec
+    az, ax = ([], [])
+    ba = await _live_bot_names(client)
+    aq, bz = _find_dbs(config.instances_dir, ba, config.max_stale_sec)
     if not aq:
-        av = 'no bot reported active' if az is not None else 'no recently-written instance db'
-        bl = f'  nothing to judge - {av}'
-        if by:
-            bl += f' ({len(by)} inactive session(s) skipped)'
-        return ([bl], [])
-    cg, bs = ([], [])
+        aw = 'no bot reported active' if ba is not None else 'no recently-written instance db'
+        bm = f'  nothing to judge - {aw}'
+        if bz:
+            bm += f' ({len(bz)} inactive session(s) skipped)'
+        return ([bm], [])
+    ch, bt = ([], [])
     for ao in aq:
-        bw, ar = _read_fills(ao, cb)
-        cg.extend(bw)
-        if ar:
-            bs.append(ar)
-    if not cg:
-        return ([f'  no fills in the last {config.window_sec}s across {len(aq)} instance(s)'] + bs, [])
+        bx, at = _read_fills(ao, cc)
+        ch.extend(bx)
+        if at:
+            bt.append(at)
+    if not ch:
+        return ([f'  no fills in the last {config.window_sec}s across {len(aq)} instance(s)'] + bt, [])
     af = defaultdict(lambda: {'maker': [], 'taker': []})
-    for t in cg:
+    for t in ch:
         ak = t.get('connector_name')
         ab = (t.get('trading_pair') or '').split('-')[0].upper()
         if not ab:
@@ -190,27 +191,27 @@ async def _check_once(client, config: Config) -> tuple[list[str], list[dict]]:
             af[ab]['maker'].append(t)
         elif ak == config.taker_connector:
             af[ab]['taker'].append(t)
-    ay.extend(bs)
-    if by:
-        ay.append(f"  ({len(by)} inactive session(s) skipped - dead sessions cannot be killed and their fills are not this controller's)")
-    for ab, ax in sorted(af.items()):
-        bh, cf = (ax['maker'], ax['taker'])
-        n = len(bh)
-        if not bh or not cf:
-            ay.append(f'  {ab:<9} one leg only in window (maker={len(bh)} taker={len(cf)}) - no verdict')
+    az.extend(bt)
+    if bz:
+        az.append(f"  ({len(bz)} inactive session(s) skipped - dead sessions cannot be killed and their fills are not this controller's)")
+    for ab, ay in sorted(af.items()):
+        bi, cg = (ay['maker'], ay['taker'])
+        n = len(bi)
+        if not bi or not cg:
+            az.append(f'  {ab:<9} one leg only in window (maker={len(bi)} taker={len(cg)}) - no verdict')
             continue
         if n < config.min_fills:
-            ay.append(f'  {ab:<9} {n} maker fill(s) < min_fills - no verdict')
+            az.append(f'  {ab:<9} {n} maker fill(s) < min_fills - no verdict')
             continue
-        bc = sum((1 for t in bh if (t.get('trade_type') or '').upper() == 'BUY')) >= len(bh) / 2
-        bj, bg = _vwap(bh)
-        cj, _ = _vwap(cf)
-        bz = _spread_bps(bj, cj, bc)
-        ck = 'KILL' if bz < config.kill_threshold_bps else 'ok'
-        ay.append(f'  {ab:<9} {n:>3} fills  maker_vwap={bj:<14.8g} taker_vwap={cj:<14.8g} spread={bz:>7.2f}bp  {ck}')
-        if ck == 'KILL':
-            aw.append({'base': ab, 'spread': bz, 'fills': n})
-    return (ay, aw)
+        bd = sum((1 for t in bi if (t.get('trade_type') or '').upper() == 'BUY')) >= len(bi) / 2
+        bk, bh = _vwap(bi)
+        ck, _ = _vwap(cg)
+        ca = _spread_bps(bk, ck, bd)
+        cl = 'KILL' if ca < config.kill_threshold_bps else 'ok'
+        az.append(f'  {ab:<9} {n:>3} fills  maker_vwap={bk:<14.8g} taker_vwap={ck:<14.8g} spread={ca:>7.2f}bp  {cl}')
+        if cl == 'KILL':
+            ax.append({'base': ab, 'spread': ca, 'fills': n})
+    return (az, ax)
 
 async def _flip_controller(client, ad: str, ai: str, ab: str) -> str:
     """Redeploy this controller with maker and taker venues SWAPPED.
@@ -232,17 +233,17 @@ async def _flip_controller(client, ad: str, ai: str, ab: str) -> str:
                 break
         if not am:
             return f'  !! {ab}: no config found to flip'
-        at = dict(am)
-        at['maker_connector'], at['taker_connector'] = (am.get('taker_connector'), am.get('maker_connector'))
-        at['maker_trading_pair'], at['taker_trading_pair'] = (am.get('taker_trading_pair'), am.get('maker_trading_pair'))
-        at['maker_side_str'] = 'SELL' if str(am.get('maker_side_str', 'BUY')).upper() == 'BUY' else 'BUY'
-        await client.controllers.update_bot_controller_config(ad, ai, at)
+        au = dict(am)
+        au['maker_connector'], au['taker_connector'] = (am.get('taker_connector'), am.get('maker_connector'))
+        au['maker_trading_pair'], au['taker_trading_pair'] = (am.get('taker_trading_pair'), am.get('maker_trading_pair'))
+        au['maker_side_str'] = 'SELL' if str(am.get('maker_side_str', 'BUY')).upper() == 'BUY' else 'BUY'
+        await client.controllers.update_bot_controller_config(ad, ai, au)
         _FLIPS[ab] = _FLIPS.get(ab, 0) + 1
-        return f'  FLIPPED {ab}: now rests on {at['maker_connector']} {at['maker_side_str']} (was {am.get('maker_connector')} {am.get('maker_side_str')})'
+        return f'  FLIPPED {ab}: now rests on {au['maker_connector']} {au['maker_side_str']} (was {am.get('maker_connector')} {am.get('maker_side_str')})'
     except Exception as e:
         return f'  !! {ab}: flip failed: {e}'
 
-async def _stop_controllers(client, aw, config: Config) -> list[str]:
+async def _stop_controllers(client, ax, config: Config) -> list[str]:
     """Stop only the controllers whose base is in `kills`. Never stops the whole bot.
 
     There is no per-controller stop endpoint. The mechanism is the controller config's own
@@ -250,50 +251,50 @@ async def _stop_controllers(client, aw, config: Config) -> list[str]:
     every other controller in the same bot running. `bot_orchestration.stop_bot` would take
     all of them down, which is exactly the over-reaction this guard exists to avoid.
     """
-    bn = []
+    bo = []
     try:
-        br = await client.bot_orchestration.get_active_bots_status()
-        ae = (br.get('data') if isinstance(br, dict) else br) or {}
+        bs = await client.bot_orchestration.get_active_bots_status()
+        ae = (bs.get('data') if isinstance(bs, dict) else bs) or {}
     except Exception as e:
         return [f'  !! cannot list bots to stop: {e}']
-    ce = {k['base'].lower() for k in aw}
+    cf = {k['base'].lower() for k in ax}
     for ad, info in ae.items() if isinstance(ae, dict) else []:
-        bo = (info or {}).get('performance') or {} if isinstance(info, dict) else {}
-        for al in bo:
+        bp = (info or {}).get('performance') or {} if isinstance(info, dict) else {}
+        for al in bp:
             ai = str(al)
-            bb = ai.lower()
-            if not any((b in bb for b in ce)):
+            bc = ai.lower()
+            if not any((b in bc for b in cf)):
                 continue
-            ab = next((b for b in ce if b in bb), ai)
+            ab = next((b for b in cf if b in bc), ai)
             if config.flip_on_bleed and _FLIPS.get(ab, 0) < config.max_flips_per_base:
-                bn.append(await _flip_controller(client, ad, ai, ab))
+                bo.append(await _flip_controller(client, ad, ai, ab))
                 continue
             try:
                 await client.controllers.update_bot_controller_config(ad, ai, {'manual_kill_switch': True})
-                bt = 'bled again after a flip - the pair is wrong, not the venue' if _FLIPS.get(ab, 0) else 'flip disabled'
-                bn.append(f'  KILL-SWITCHED {ad}/{ai} ({bt})')
+                bu = 'bled again after a flip - the pair is wrong, not the venue' if _FLIPS.get(ab, 0) else 'flip disabled'
+                bo.append(f'  KILL-SWITCHED {ad}/{ai} ({bu})')
             except Exception as e:
-                bn.append(f'  !! failed to kill {ad}/{ai}: {e}')
-    if not bn:
-        bn.append('  (no running controller matched the killed bases)')
-    return bn
+                bo.append(f'  !! failed to kill {ad}/{ai}: {e}')
+    if not bo:
+        bo.append('  (no running controller matched the killed bases)')
+    return bo
 
 async def run(config: Config, context: ContextTypes.DEFAULT_TYPE) -> str:
     client = await get_client(context._chat_id, context=context)
     if not client:
         return 'No server available'
-    bi = 'ARMED' if config.arm else 'DRY-RUN (reporting only)'
-    logger.info('fill_guard starting: %s, every %ss', bi, config.interval_sec)
+    bj = 'ARMED' if config.arm else 'DRY-RUN (reporting only)'
+    logger.info('fill_guard starting: %s, every %ss', bj, config.interval_sec)
     while True:
         try:
-            ay, aw = await _check_once(client, config)
-            ca = time.strftime('%H:%M:%S')
-            ac = [f'[{ca}] fill_guard  window={config.window_sec}s  {bi}'] + ay
-            if aw:
+            az, ax = await _check_once(client, config)
+            cb = time.strftime('%H:%M:%S')
+            ac = [f'[{cb}] fill_guard  window={config.window_sec}s  {bj}'] + az
+            if ax:
                 if config.arm:
-                    ac += await _stop_controllers(client, aw, config)
+                    ac += await _stop_controllers(client, ax, config)
                 else:
-                    ac.append('  WOULD STOP: ' + ', '.join((f'{k['base']} ({k['spread']:.1f}bp)' for k in aw)) + '   - set arm=True to act')
+                    ac.append('  WOULD STOP: ' + ', '.join((f'{k['base']} ({k['spread']:.1f}bp)' for k in ax)) + '   - set arm=True to act')
             logger.info('\n'.join(ac))
         except asyncio.CancelledError:
             logger.info('fill_guard cancelled')

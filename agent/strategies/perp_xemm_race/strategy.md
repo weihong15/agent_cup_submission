@@ -22,9 +22,11 @@ default_config:
   min_edge_bps: 5.0
   min_volume_usd: 1500000
   urgent_fundsig_bph: -0.1
+  margin_floor_pct: 0.15
+  max_base_notional_quote: 120
+  size_hint_quote: 40
   exit_bps_at_full_margin: -6.0
   exit_bps_at_no_margin: -16.0
-  margin_floor_pct: 0.10
   size_base_quote: 40
   size_wide_quote: 100
   wide_carry_bps: 3.0
@@ -69,12 +71,19 @@ manage_routines(action="run", name="slot_plan", agent="funding_builders_cup",
   config={"slots": <slots>, "min_fundsig_bph": <min_fundsig_bph>,
           "min_edge_bps": <min_edge_bps>, "min_volume_usd": <min_volume_usd>,
           "urgent_fundsig_bph": <urgent_fundsig_bph>,
+          "margin_floor_pct": <margin_floor_pct>,
+          "max_base_notional_quote": <max_base_notional_quote>,
+          "size_hint_quote": <size_base_quote>,
           "exit_bps_at_full_margin": <exit_bps_at_full_margin>,
           "exit_bps_at_no_margin": <exit_bps_at_no_margin>})
 ```
 
 It returns the ordered allocation: **urgent unwinds -> enters/adds -> normal unwinds**, ranked by
 carry. Execute it top-down. Do not re-rank, re-gate or re-size it.
+
+**`MARGIN x% < floor` -> the plan contains no entries.** That is deliberate: on $800 of capital
+free margin is the binding constraint, and unwinds are the only way to get it back. Deploy the
+unwinds and wait.
 
 **`SLOT PLAN REFUSED` -> stop.** Positions could not be read; journal it and do nothing else.
 
@@ -96,8 +105,9 @@ Read free margin per venue and whatever `fill_guard` did since the last tick.
 - Base size `size_base_quote`.
 - Raise to `size_wide_quote` only when carry > `wide_carry_bps` **and** the pair already filled
   well at that carry. A large carry with no fill history is a claim, not evidence.
-- Never exceed `risk_limits.max_position_size_quote` per pair **counting what is already held**,
-  or the venue's free margin.
+- `slot_plan` already excludes any base at `max_base_notional_quote` and stops proposing entries
+  below `margin_floor_pct`, so a plan line is pre-cleared for size. Still never exceed
+  `risk_limits.max_position_size_quote` per pair or the venue's free margin.
 
 `total_amount` is in base units and is the executor's lifetime. Size it as a whole number of
 `min_notional` slices so a partial fill cannot strand an unplaceable remainder.
