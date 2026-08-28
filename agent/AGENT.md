@@ -35,7 +35,7 @@ back if it has not moved. Funding is banked at every settlement.
 |---|---|---|
 | pair suffix | **`-USD`** | **`-USDT`** |
 | settles in | USDC | USDT |
-| funding | hourly | 4h or 8h, per symbol |
+| funding | hourly | **1h, 4h or 8h** - per symbol, never assume |
 
 `BASE-USD` on Hyperliquid, `BASE-USDT` on Binance. Never use one venue's spelling on the other:
 the API accepts it, the bot spawns, then the connector dies with `KeyError`.

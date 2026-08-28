@@ -58,7 +58,10 @@ force-closed at the end of the race and that close is scored.
 ## Venue facts
 
 `BASE-USD` on Hyperliquid (settles USDC). `BASE-USDT` on Binance (settles USDT).
-Hyperliquid funding settles hourly; Binance every 4h or 8h depending on the symbol.
+Hyperliquid funding settles hourly. Binance settles **1h, 4h or 8h depending on the symbol** -
+never assume 8h. The interval decides how many settlements a hold actually collects, so
+`basis_scanner` reads it per symbol and reports it; carry is computed over
+`H = max(the two intervals)`.
 
 ## Each tick
 
