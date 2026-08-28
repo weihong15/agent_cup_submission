@@ -1,0 +1,27 @@
+# Bot-runner image: what hummingbot-api spawns per deployed bot.
+# The executor must live INSIDE this image - it is imported by the strategy at runtime.
+# PINNED to an official released tag on purpose. `:latest` on this machine is a
+# LOCAL FORK BUILD (empty RepoDigests), so building FROM it would silently inherit
+# private code. Never change this to :latest.
+FROM hummingbot/hummingbot:version-2.16.0
+
+ARG PKG=/home/hummingbot/hummingbot
+
+# The image runs inside a conda env; bare `python` at build time is the BASE env
+# and cannot import hummingbot's deps. Pin the env interpreter explicitly.
+ARG PY=/opt/conda/envs/hummingbot/bin/python
+
+COPY perp_xemm_executor/ ${PKG}/strategy_v2/executors/perp_xemm_executor/
+COPY register_executor.py /tmp/register_executor.py
+RUN ${PY} /tmp/register_executor.py ${PKG} && rm /tmp/register_executor.py
+
+# Fail the BUILD if registration did not take. Without this the image builds
+# clean and the failure only surfaces at deploy time.
+RUN ${PY} -c "\
+from hummingbot.strategy_v2.executors.executor_orchestrator import ExecutorOrchestrator as O; \
+from hummingbot.strategy_v2.models.executors_info import AnyExecutorConfig; \
+from hummingbot.strategy_v2.executors.perp_xemm_executor.data_types import PerpXEMMExecutorConfig as C; \
+import typing; \
+assert 'perp_xemm_executor' in O._executor_mapping, 'orchestrator dispatch missing'; \
+assert C in typing.get_args(AnyExecutorConfig), 'AnyExecutorConfig union missing'; \
+print('perp_xemm_executor registered OK')"
