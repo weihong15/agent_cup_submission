@@ -26,8 +26,8 @@ default_config:
   margin_floor_pct: 0.10
   exit_bps_at_full_margin: -6.0
   exit_bps_at_no_margin: -16.0
-  size_usd: 90              # baseline notional per entry, in QUOTE currency (6 x min_notional)
-  size_scaled_usd: 120      # after a pair proves itself, see step 3 (8 x min_notional)
+  size_usd: 90              # USD notional of ONE LEG of one position (6 x min_notional)
+  size_scaled_usd: 120      # same, after a pair proves itself - see step 3 (8 x min_notional)
   scale_up_realized_bps: 20.0
   leverage: 3
   min_notional: 15
@@ -104,14 +104,20 @@ Read free margin per venue and whatever `fill_guard` did since the last tick.
 
 ### 3. Size
 
-**The plan hands you both amounts. Copy one; do not compute it.** Each entry line prints:
+`size_usd` is the **USD notional of ONE LEG**. A position is two legs, so `size_usd: 90` opens
+about $90 on Hyperliquid and $90 on Binance - $180 gross, roughly $60 of initial margin at 3x.
+`size_scaled_usd` is the same measure, used only once a pair has proven itself.
+
+**The plan hands you both amounts in coin units. Copy one; do not compute it.** Each entry
+line prints:
 
 ```
--> total_amount 289.482 base ($45) | scaled 578.964 ($90) @ 0.15545
+-> total_amount 5.65646 base ($90) | scaled 7.54195 ($120) @ 15.911
 ```
 
-Those are in **base units** (the coin), already converted from the quote-currency size and
-already rounded to a whole number of `min_notional` slices.
+Read that as: rest **5.65646 VVV** on the maker venue, which at $15.911 is **$90** of notional,
+already rounded to a whole number of `min_notional` slices. `total_amount` is what goes into the
+controller config verbatim.
 
 - **Default: use `total_amount`** (the `$45` figure).
 - **Use `scaled` only after the pair has actually realized it**: the previous window's realized
