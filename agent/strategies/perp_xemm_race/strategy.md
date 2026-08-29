@@ -26,8 +26,8 @@ default_config:
   margin_floor_pct: 0.10
   exit_bps_at_full_margin: -6.0
   exit_bps_at_no_margin: -16.0
-  size_usd: 90              # USD notional of ONE LEG of one position (6 x min_notional)
-  size_scaled_usd: 120      # same, after a pair proves itself - see step 3 (8 x min_notional)
+  size_usd: 150             # USD notional of ONE LEG of one position (10 x min_notional)
+  size_scaled_usd: 900      # same, after a pair proves itself - see step 3 (60 x min_notional)
   scale_up_realized_bps: 20.0
   leverage: 3
   min_notional: 15
@@ -104,9 +104,13 @@ Read free margin per venue and whatever `fill_guard` did since the last tick.
 
 ### 3. Size
 
-`size_usd` is the **USD notional of ONE LEG**. A position is two legs, so `size_usd: 90` opens
-about $90 on Hyperliquid and $90 on Binance - $180 gross, roughly $60 of initial margin at 3x.
-`size_scaled_usd` is the same measure, used only once a pair has proven itself.
+`size_usd` is the **USD notional of ONE LEG**. A position is two legs, so `size_usd: 150` opens
+about $150 on each venue - $300 gross, $100 of initial margin at 3x.
+
+`size_scaled_usd: 900` is deliberately large: a proven pair takes roughly $600 of margin, most
+of the account, and its session keeps quoting for many minutes instead of filling in seconds.
+Only one such position fits. That is the intent - concentrate into what is demonstrably working
+- and `margin_floor_pct` is what stops it going further.
 
 **The plan hands you both amounts in coin units. Copy one; do not compute it.** Each entry
 line prints:

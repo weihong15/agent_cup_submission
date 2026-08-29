@@ -25,8 +25,8 @@ What is left, and what actually works, is the bot's own SQLite - the standard Hu
 on the host and the API bind-mounts that directory, so the file is directly readable. It is
 opened READ-ONLY (`mode=ro`) because the bot is actively writing to it.
 
-Threshold at 0 bp: a session whose recent fills average a negative spread is not paying for its
-own execution. A false positive costs only the remainder of the tick window - the pair can be
+The threshold is a QUALITY bar, not a survival bar: at these position sizes a session that is
+merely not-losing is not worth the margin it holds, so the default sits well above zero. A false positive costs only the remainder of the tick window - the pair can be
 re-entered next tick - so the rule favours recall over precision. `min_fills` is a sanity guard
 against a single-fill artefact, not a quality filter; raising it mostly just delays the verdict.
 
@@ -51,7 +51,7 @@ class Config(BaseModel):
     """Kills perp_xemm controllers whose recent fills average a negative spread."""
     interval_sec: int = Field(default=300, description='Seconds between checks')
     window_sec: int = Field(default=600, description='Look-back for fills. Wider than the interval so a slow pair still has a sample.')
-    kill_threshold_bps: float = Field(default=0.0, description='Stop the controller when the window VWAP spread is below this')
+    kill_threshold_bps: float = Field(default=12.0, description="Stop the controller when the window's VWAP realized spread is below this. Set at 12 rather than 0 because position sizes are large: a session that is merely not-losing is not worth the margin it holds. Historically ~55% of sessions realize under 12bp, so expect this to fire often - it FLIPS the resting venue first and only kills if the pair bleeds again.")
     min_fills: int = Field(default=2, description='Sanity guard against a single-fill artefact. Not a quality filter.')
     max_stale_sec: float = Field(default=300.0, description="Fallback only, when the API's active-bot list cannot be read: ignore an instance db not written within this many seconds.")
     maker_connector: str = Field(default='hyperliquid_perpetual', description='Venue that rests')
