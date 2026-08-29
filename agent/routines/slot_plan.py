@@ -64,8 +64,8 @@ class Config(BaseModel):
     maker_venue_hl: str = Field(default='hyperliquid_perpetual')
     taker_venue_bin: str = Field(default='binance_perpetual')
     min_fundsig_bph: float = Field(default=0.3, description='Entry funding gate, bp/h')
-    min_edge_bps: float = Field(default=0.0, description='Entry execution floor, bp')
     min_volume_usd: float = Field(default=1500000.0)
+    min_max_leverage: float = Field(default=3.0, description='Skip a base whose venue-permitted max leverage is below this. Mirrors basis_scanner: the plan re-implements the candidate filters, so a filter added there is NOT applied here unless it is added here too.')
     urgent_fundsig_bph: float = Field(default=-0.1, description='Held position with fundsig below this = URGENT unwind')
     exit_bps_at_full_margin: float = Field(default=-6.0, description='Exit floor when margin is plentiful (health 100%): we can afford to be picky.')
     exit_bps_at_no_margin: float = Field(default=-16.0, description='Exit floor when margin is exhausted (health 0%): we must get out, and pay for it.')
@@ -203,13 +203,15 @@ async def run(config: Config, context: ContextTypes.DEFAULT_TYPE) -> str:
         cq = [u for u in cq if u['notional'] <= aq]
     cs = sorted([u for u in cq if u['urgent']], key=lambda u: u['fundsig'] or 0)
     bw = sorted([u for u in cq if not u['urgent']], key=lambda u: u['carry'] or 0)
-    at = an.Config(min_fundsig_bph=config.min_fundsig_bph, min_edge_bps=config.min_edge_bps, min_volume_usd=config.min_volume_usd, slots=config.slots)
+    at = an.Config(min_fundsig_bph=config.min_fundsig_bph, min_volume_usd=config.min_volume_usd, min_max_leverage=config.min_max_leverage, slots=config.slots)
     ax = []
     for ag in [b for b in bl if an._bin_symbol(b) in ak and an._symbol_ok(b)[0]]:
         bp, aj = (bl[ag], ak[an._bin_symbol(ag)])
         if not bp['bid'] or not bp['ask']:
             continue
         if bp['volume_usd'] < at.min_volume_usd or aj['volume_usd'] < at.min_volume_usd:
+            continue
+        if at.min_max_leverage and bp.get('max_leverage', 0) < at.min_max_leverage:
             continue
         bg = an._all_four(bp, aj)
         v, s, aw = bg[0]

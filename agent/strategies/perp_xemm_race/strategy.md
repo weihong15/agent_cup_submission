@@ -128,7 +128,7 @@ controller config verbatim.
 
 - **Default: use `total_amount`** (the `$45` figure).
 - **Use `scaled` only after the pair has actually realized it**: the previous window's realized
-  spread on that base, from `race_book`/`fill_guard`, was above `scale_up_realized_bps`. Carry
+  spread on that base, from `margin_book` / `fill_guard`, was above `scale_up_realized_bps`. Carry
   and edge are forecasts; realized spread is the only number that has already happened.
 - Drop straight back to the base amount on the first window that realizes below the bar.
 - **Leverage is capped by the venue, per coin.** The scanner already drops anything below
