@@ -21,12 +21,13 @@ default_config:
   min_fundsig_bph: 0.3
   min_edge_bps: 5.0
   min_volume_usd: 1500000
+  min_max_leverage: 3
   urgent_fundsig_bph: -0.1
   margin_floor_pct: 0.10
   exit_bps_at_full_margin: -6.0
   exit_bps_at_no_margin: -16.0
-  size_usd: 45              # baseline notional per entry, in QUOTE currency
-  size_scaled_usd: 90       # after a pair proves itself, see step 3
+  size_usd: 90              # baseline notional per entry, in QUOTE currency (6 x min_notional)
+  size_scaled_usd: 120      # after a pair proves itself, see step 3 (8 x min_notional)
   scale_up_realized_bps: 20.0
   leverage: 3
   min_notional: 15
@@ -71,6 +72,7 @@ never assume 8h. The interval decides how many settlements a hold actually colle
 manage_routines(action="run", name="slot_plan", agent="funding_builders_cup",
   config={"slots": <slots>, "min_fundsig_bph": <min_fundsig_bph>,
           "min_edge_bps": <min_edge_bps>, "min_volume_usd": <min_volume_usd>,
+          "min_max_leverage": <min_max_leverage>,
           "urgent_fundsig_bph": <urgent_fundsig_bph>,
           "margin_floor_pct": <margin_floor_pct>,
           "size_usd": <size_usd>, "size_scaled_usd": <size_scaled_usd>,
@@ -116,6 +118,9 @@ already rounded to a whole number of `min_notional` slices.
   spread on that base, from `race_book`/`fill_guard`, was above `scale_up_realized_bps`. Carry
   and edge are forecasts; realized spread is the only number that has already happened.
 - Drop straight back to the base amount on the first window that realizes below the bar.
+- **Leverage is capped by the venue, per coin.** The scanner already drops anything below
+  `min_max_leverage`. Do not assume a coin supports more than 3x: on Hyperliquid most alts cap
+  at 3-5x, and the high-leverage majors are exactly the ones whose funding does not diverge.
 - **A base that keeps qualifying is where the next dollar goes.** There is no per-base cap:
   adding to a winner beats forcing capital into a worse candidate. Exposure is bounded by
   margin, which `slot_plan` enforces by planning no entries below `margin_floor_pct`.
