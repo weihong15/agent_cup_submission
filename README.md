@@ -23,6 +23,7 @@ agent/             -> goes to condor/agents/funding_builders_cup/ (drop 2)
 INSTALL.md         -> full build detail
 verify_submission.py -> run it after installing
 README.md          -> this file
+TEARDOWN.md        -> operator note: what to clean up after the race (not for Botcamp)
 ```
 
 `agent/` is the folder to copy, and it must land under the name
