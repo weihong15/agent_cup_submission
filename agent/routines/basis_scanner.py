@@ -39,7 +39,7 @@ class Config(BaseModel):
     """Funding-arb candidates across Hyperliquid and Binance perps, ranked by carry."""
     universe: list[str] = Field(default=[], description='Bases to scan. EMPTY = every base both venues list.')
     min_fundsig_bph: float = Field(default=0.3, description="Funding gate, bp/HOUR, signed for the row's direction.")
-    min_edge_bps: float = Field(default=0.0, description='Execution floor: skip if the price edge is worse than this.')
+    min_edge_bps: float = Field(default=13.0, description="Execution floor, and the controller's rest floor. Capital is scarce, so an entry has to be worth the margin it takes. Measured over ~96k samples, 64% of funding-qualified moments clear 13bp, so this bars the marginal ones without starving the plan.")
     min_volume_usd: float = Field(default=1500000.0, description='Minimum 24h traded volume on BOTH venues.')
     min_max_leverage: float = Field(default=3.0, description="Skip a base whose venue-permitted MAX leverage is below this. Only Hyperliquid publishes it, and it is the binding side (Binance offers more on every pair we trade), so the filter reads HL's number. Set at 3 to exclude only genuinely capped names: leverage and funding quality pull OPPOSITE ways here - the 20x+ majors are efficient and their funding rarely diverges, while the pairs that clear the funding gate cap at 3-5x. A higher bar buys headroom that cannot be filled.")
     slots: int = Field(default=6, description='Concurrent controller budget.')
