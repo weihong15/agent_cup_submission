@@ -19,7 +19,8 @@ default_config:
   maker_venue_hl: hyperliquid_perpetual
   taker_venue_bin: binance_perpetual
   min_fundsig_bph: 0.3
-  min_edge_bps: 13.0
+  entry_bps_at_full_margin: 10.0
+  entry_bps_at_no_margin: 22.0
   min_volume_usd: 1500000
   min_max_leverage: 3
   urgent_fundsig_bph: -0.1
@@ -71,7 +72,9 @@ never assume 8h. The interval decides how many settlements a hold actually colle
 ```
 manage_routines(action="run", name="slot_plan", agent="funding_builders_cup",
   config={"slots": <slots>, "min_fundsig_bph": <min_fundsig_bph>,
-          "min_edge_bps": <min_edge_bps>, "min_volume_usd": <min_volume_usd>,
+          "min_volume_usd": <min_volume_usd>,
+          "entry_bps_at_full_margin": <entry_bps_at_full_margin>,
+          "entry_bps_at_no_margin": <entry_bps_at_no_margin>,
           "min_max_leverage": <min_max_leverage>,
           "urgent_fundsig_bph": <urgent_fundsig_bph>,
           "margin_floor_pct": <margin_floor_pct>,
@@ -154,12 +157,17 @@ manage_bots(action="deploy", bot_name=<bot_name>, controllers_config=[...],
 **`image` is required.** Omitted, the API defaults to a stock image with no `perp_xemm_executor`:
 the deploy succeeds, the container starts, and exits. The only symptom is a bot that is not running.
 
-`min_price_edge_bps` is the controller's rest floor:
-- **ENTER** -> set it to `min_edge_bps` (13bp). Never 0; a 0 floor fills at any edge, including
-  negative. The floor pairs with `fill_guard`'s 12bp kill bar: rest only at 13bp or better, and
-  stop a session that realizes under 12. The 1bp gap absorbs slippage between quote and fill.
-- **UNWIND** -> set it to the plan's `exit_bps` (negative - what we will pay to leave).
+`min_price_edge_bps` is the controller's rest floor. **Both values come from the plan - copy
+them, do not pick a number:**
+- **ENTER** -> the line's `min_price_edge_bps` (its `entry_floor_bps`). Never 0; a 0 floor fills
+  at any edge, including negative.
+- **UNWIND** -> the line's `exit_bps` (negative - what we will pay to leave).
 
+The entry floor **slides with margin**: 10bp when margin is plentiful, 22bp when it is nearly
+gone, printed at the top of every plan. Idle capital is worth deploying on a decent edge; the
+last dollars are not. The exit floor slides the opposite way over the same range, so as margin
+drains, leaving gets easier and entering gets harder and the book drifts toward flat on its own
+rather than slamming into `margin_floor_pct`.
 Stop the previous tick's controllers before deploying this tick's plan.
 
 **Unwind timing:** an unwind just **before** a funding print forfeits it; just **after** banks it.
