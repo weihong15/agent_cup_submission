@@ -25,8 +25,8 @@ default_config:
   margin_floor_pct: 0.10
   exit_bps_at_full_margin: -6.0
   exit_bps_at_no_margin: -16.0
-  size_base_quote: 45
-  size_wide_quote: 90
+  size_usd: 45              # baseline notional per entry, in QUOTE currency
+  size_scaled_usd: 90       # after a pair proves itself, see step 3
   scale_up_realized_bps: 20.0
   leverage: 3
   min_notional: 15
@@ -73,6 +73,8 @@ manage_routines(action="run", name="slot_plan", agent="funding_builders_cup",
           "min_edge_bps": <min_edge_bps>, "min_volume_usd": <min_volume_usd>,
           "urgent_fundsig_bph": <urgent_fundsig_bph>,
           "margin_floor_pct": <margin_floor_pct>,
+          "size_usd": <size_usd>, "size_scaled_usd": <size_scaled_usd>,
+          "min_notional": <min_notional>,
           "exit_bps_at_full_margin": <exit_bps_at_full_margin>,
           "exit_bps_at_no_margin": <exit_bps_at_no_margin>})
 ```
@@ -100,21 +102,26 @@ Read free margin per venue and whatever `fill_guard` did since the last tick.
 
 ### 3. Size
 
-- Base size `size_base_quote`.
-- **Double to `size_wide_quote` only after the pair has actually realized it**: the previous
-  window's realized spread on that base, from `race_book`/`fill_guard`, was above
-  `scale_up_realized_bps`. Carry and edge are forecasts; realized spread is the only number
-  that has already happened. A wide quote with no fill history is a claim, not evidence.
-- Drop straight back to base size on the first window that realizes below the bar.
+**The plan hands you both amounts. Copy one; do not compute it.** Each entry line prints:
+
+```
+-> total_amount 289.482 base ($45) | scaled 578.964 ($90) @ 0.15545
+```
+
+Those are in **base units** (the coin), already converted from the quote-currency size and
+already rounded to a whole number of `min_notional` slices.
+
+- **Default: use `total_amount`** (the `$45` figure).
+- **Use `scaled` only after the pair has actually realized it**: the previous window's realized
+  spread on that base, from `race_book`/`fill_guard`, was above `scale_up_realized_bps`. Carry
+  and edge are forecasts; realized spread is the only number that has already happened.
+- Drop straight back to the base amount on the first window that realizes below the bar.
 - **A base that keeps qualifying is where the next dollar goes.** There is no per-base cap:
   adding to a winner beats forcing capital into a worse candidate. Exposure is bounded by
   margin, which `slot_plan` enforces by planning no entries below `margin_floor_pct`.
 - Still never exceed the venue's free margin on a single line.
 
-`total_amount` is in base units and is the executor's lifetime. **Size it as a whole number of
-`min_notional` slices** - both sizes are: 45 = 3 x 15, 90 = 6 x 15. A size that is not a
-multiple leaves a tail worth less than one minimum order, which the executor cannot place: it
-retries, backs off, and the session dies with the position half-built.
+`total_amount` is also the executor's **lifetime** - it stops when that amount has filled.
 
 ### 4. Deploy
 
