@@ -1,0 +1,31 @@
+# EXIT: cancel makers, then ONE market order so the account holds close_base_share of USD1 (0 = all USDT, 1 = all
+# USD1), then idle. Works outside the peg band. Deploy it when the churn controller is KILLED (a killed controller
+# ignores close_now) or to leave a pair for good. Kill-switch thresholds are wide on purpose: it trades once.
+id: stable_churn_usd1_exit
+controller_name: stable_churn
+controller_type: generic
+connector_name: binance
+trading_pair: USD1-USDT
+volume_target_usd: 3500000
+size_all: true
+improve_inside: true
+clip_usd: 400
+rebalance_to: 0.9
+band_usd: 400
+behind_clips: 10
+taker_imbalance_max: 0.3
+imbalance_valve: 3
+max_fee_bps: 1000
+max_drawdown_usd: 1000
+bootstrap_pair: ''
+peg_low: 0.998
+peg_high: 1.002
+pause: false
+close_now: true
+tick_interval_s: 1.0
+race_end_ts: 0
+race_duration_s: 172800
+stop_lead_s: 900
+close_base_share: 0
+start_balanced: false
+close_at_end: false

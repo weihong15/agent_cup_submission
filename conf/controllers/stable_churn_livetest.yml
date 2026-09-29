@@ -1,0 +1,31 @@
+# LIVE FLOW TEST ONLY - tiny size, 1 hour. Not the race config.
+# Fund the Binance SPOT account with ~$40 USDT: at start the bot checks balances and market-buys half in USD1.
+# Scaled so every path fires within the hour: makers at the touch, paced rebalance, schedule taker, 50/50 close (close_at_end: true).
+id: stable_churn_livetest
+controller_name: stable_churn
+controller_type: generic
+connector_name: binance
+trading_pair: USD1-USDT
+volume_target_usd: 3000      # ~$3k/h - forces both maker and taker paths with a $40 book
+size_all: true
+improve_inside: true      # quote one tick inside when the spread is 2+ ticks (one side only at exactly 2)
+clip_usd: 10                 # must be <= the balance on a side; Binance min notional is $5
+rebalance_to: 0.9         # paced rebalance moves 90% of the account into the empty side (1 s grid winner, with behind_clips 10)
+band_usd: 20
+behind_clips: 10
+taker_imbalance_max: 0.3 # cross only when the hit level is <= 30% of top-of-book size (thin = about to tick our way)
+imbalance_valve: 3        # ...unless behind schedule by > 3 x behind_clips x clip
+max_fee_bps: 0.5             # FEE KILL-SWITCH - the most important thing this test proves
+max_drawdown_usd: 2      # 2nd kill-switch, independent of fee reporting (scaled to the $40 test book)
+bootstrap_pair: ""       # set "USDC-USDT" ONLY if the account is funded in USDC: converts it to USDT once at start
+start_balanced: true      # at start: check balances, one market order to 50/50 (all-USDT deposit buys half USD1)
+peg_low: 0.9980           # USD1 sits at 0.9996-0.9999 (2-3 bp under par) in every capture: 0.9990 left only 7-9 bp
+peg_high: 1.0020          # +-20 bp still catches a real depeg early; a false halt would kill the volume rank
+pause: false              # LIVE switch: true = cancel all + stand aside (see PARAMS.md)
+close_now: false          # LIVE switch: true = rebalance to 50/50 now, then idle
+close_base_share: 0.5     # LIVE: what a close rebalances to (0 = all quote, 1 = all base)
+close_at_end: true       # 1 h test: close to 50/50 and idle at the end
+tick_interval_s: 1.0       # Hummingbot standard 1 s cadence (operator: run at 1 s)
+race_end_ts: 0
+race_duration_s: 3600        # 1 hour
+stop_lead_s: 300             # last 5 min: stop churning, rebalance to 50/50

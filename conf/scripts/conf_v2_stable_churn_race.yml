@@ -1,0 +1,3 @@
+controllers_config:
+- stable_churn_usd1usdt.yml
+script_file_name: v2_with_controllers.py

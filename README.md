@@ -1,167 +1,74 @@
-# Funding Builders Cup — submission
+# Stable Churn
 
-**Read this file first.** It is the whole install in one page; `INSTALL.md` is the detail
-behind drop 1, and `verify_submission.py` proves the install worked.
+A volume-churning algorithm for stablecoins: two-sided post-only market making at the touch of Binance spot
+**USD1/USDT** (0% maker and taker fees), supervised by an autonomous Condor agent. Strategy and evidence:
+[`strategy.md`](strategy.md).
 
-> **Three settings are not optional** and each fails quietly if skipped — see
-> [Before the race](#before-the-race--three-things-to-set):
-> **`bot_image`** must match your image tag, **`fill_guard`** must be started with
-> `arm=True`, and **leverage** must be set on both venues.
+Verified against the official **hummingbot v2.17.0** image, **hummingbot-api** main and **condor** main (2026-09-29):
+the real controller loader, the smoke test, hummingbot-api's config validation, and condor's agent checks.
 
+## What's here
 
-Cross-venue funding arbitrage on Binance and Hyperliquid perpetuals. Delta-neutral perp_xemm:
-post-only maker on one venue, market hedge on the other; the funding differential is the earner.
-
-**Two drops.** Nothing else is needed.
-
-### What is in this bundle
-
-```
-executor/          -> goes INTO the hummingbot image (drop 1)
-docker/            -> the two Dockerfiles that do drop 1 for you
-agent/             -> goes to condor/agents/funding_builders_cup/ (drop 2)
-INSTALL.md         -> full build detail
-verify_submission.py -> run it after installing
-README.md          -> this file
-TEARDOWN.md        -> operator note: what to clean up after the race (not for Botcamp)
-```
-
-`agent/` is the folder to copy, and it must land under the name
-**`funding_builders_cup`** - `verify_submission.py` and the routine loader both key on it.
-
----
-
-## Drop 1 — the executor (needs a local image build)
-
-| file | goes to |
+| path | what |
 |---|---|
-| `perp_xemm_executor/__init__.py` | `hummingbot/strategy_v2/executors/perp_xemm_executor/` |
-| `perp_xemm_executor/data_types.py` | same |
-| `perp_xemm_executor/perp_xemm_executor.py` | same |
-| `register_executor.py` | run once at build time (see below) |
-| `perp_xemm_controller.py` | `hummingbot-api/bots/controllers/generic/` |
+| `controllers/generic/stable_churn.py` | the Hummingbot V2 controller (one file, stock Hummingbot imports only) |
+| `conf/controllers/stable_churn_usd1usdt.yml` | the race config |
+| `conf/controllers/stable_churn_usdcusdt.yml` | the same strategy on USDC/USDT (fallback) |
+| `conf/controllers/stable_churn_livetest.yml` | a 1-hour test on ~$40 that exercises every path |
+| `conf/scripts/conf_v2_stable_churn_*.yml` | `v2_with_controllers.py` script configs for a plain Hummingbot run |
+| `agent/stable_churn_operator/` | the Condor agent: `AGENT.md`, supervisor loop, skills, and the controller it owns |
+| `docs/PARAMS.md` | every parameter: live or restart-only, safe ranges, how to change it on a running bot |
+| `tools/set_param.py` | change a running bot's parameters and wait for its confirmation |
+| `tests/smoke_stable_churn.py` | offline smoke test (no network, no orders) |
 
-`Dockerfile.bot` and `Dockerfile.api` are included and do all of this.
+## Account
 
-**The executor must go into TWO images.** The bot-runner image runs it; the `hummingbot-api`
-image also needs it, because the API imports the controller to validate a config and the
-controller imports `PerpXEMMExecutorConfig`. Miss the second and configs silently fail to save
-while the bot image looks fine.
+- Binance **spot**, funded in any stablecoin. With `bootstrap_pair: auto` (race config) the bot sells USDC / FDUSD into
+  USDT once at start, then one market order brings it to 50/50 USD1/USDT.
+- Recommended: turn off "Use BNB to pay fees", so any fee would be charged in the pair's coins where the kill-switches
+  see it.
+- No end time is needed: the bot has no end state and runs until it is stopped.
 
-**Registration touches three files** (`executors/data_types.py`, `executor_orchestrator.py`,
-`models/executors_info.py`). All three must agree, and all three fail at *deploy* time rather
-than build time. `register_executor.py` does all three and is idempotent; both Dockerfiles run
-it and then assert the result, so a mis-registration fails the build instead of the race.
+## Run with hummingbot-api
 
-```bash
-docker build -f docker/Dockerfile.bot -t <YOUR_BOT_IMAGE>     executor/
-docker build -f docker/Dockerfile.api -t <YOUR_API_IMAGE>     executor/
+1. Copy `controllers/generic/stable_churn.py` to `bots/controllers/generic/` and
+   `conf/controllers/stable_churn_usd1usdt.yml` to `bots/conf/controllers/`.
+2. `POST /bot-orchestration/deploy-v2-controllers`
+   ```json
+   {"instance_name": "stable-churn-usd1", "credentials_profile": "<binance account>",
+    "controllers_config": ["stable_churn_usd1usdt.yml"], "headless": true}
+   ```
+
+## Run with plain Hummingbot
+
+Mount `controllers/` as the instance's `controllers/`, `conf/controllers/` and `conf/scripts/` into its `conf/`, then:
+```
+start --script v2_with_controllers.py --conf conf_v2_stable_churn_race.yml
+```
+or headless: `-e SCRIPT_CONFIG=conf_v2_stable_churn_race.yml -e HEADLESS_MODE=true` on the
+`hummingbot/hummingbot:version-2.17.0` image.
+
+## Run with the Condor agent
+
+Copy `agent/stable_churn_operator/` into condor's `agents/`. The agent syncs its controller
+(`manage_agent_controllers sync`), uploads the `race_usd1usdt` sample, deploys it with `manage_bots`, then runs the
+`stable_churn_supervisor` loop. See `agent/stable_churn_operator/AGENT.md`.
+
+## Changing settings while it runs
+
+Hummingbot re-reads the controller yml about every 10 s; the controller logs `CONFIG UPDATE applied: field: old -> new`
+and a `STATUS` line every minute. From hummingbot-api:
+`POST /controllers/bots/{bot_name}/{controller_config_name}/config` with `{"field": value}`. On a plain install:
+```
+python tools/set_param.py --yml conf/controllers/stable_churn_usd1usdt.yml \
+    --log logs/logs_conf_v2_stable_churn_race.log pause=true
 ```
 
-Full detail, including the two build gotchas (the conda interpreter, and the absent
-`hummingbot` user), is in `INSTALL.md`.
+## Test
 
----
-
-## Drop 2 — the Condor agent (copy, no build)
-
-Copy the whole folder to `condor/agents/funding_builders_cup/`:
-
+Inside the hummingbot environment. With the official image:
 ```
-AGENT.md                              role, venue facts, hard rules
-strategies/perp_xemm_race/strategy.md the tick loop and every threshold
-routines/slot_plan.py                 THE plan: ordered slot allocation
-routines/basis_scanner.py             candidate table, 5 bulk API calls
-routines/margin_book.py               per-venue free margin, hedge state
-routines/fill_guard.py                continuous guard, kills bad sessions
-skills/venue_rejects/SKILL.md         venue reject handling
+docker run --rm --entrypoint bash -e PYTHONPATH=/home/hummingbot -v "$PWD":/repo \
+  hummingbot/hummingbot:version-2.17.0 -lc 'conda activate hummingbot; cd /repo && python -B tests/smoke_stable_churn.py'
+# -> ALL SMOKE CHECKS PASSED
 ```
-
----
-
-## Before the race — three things to set
-
-Everything else works out of the box. These three do not, and each fails quietly.
-
-**1. `bot_image` must match your image tag.**
-
-`agent/strategies/perp_xemm_race/strategy.md` → `default_config.bot_image` currently reads
-`hummingbot/hummingbot:latest`. Either tag your build with that name, or change this one line
-to whatever you tagged.
-
-A mismatch is silent and fatal: the deploy *succeeds*, the container starts on an image with no
-`perp_xemm_executor`, and exits code 1. The only symptom is a bot that is not running.
-
-**2. Start `fill_guard` with `arm=True`.**
-
-```
-manage_routines(action="run", name="fill_guard", agent="funding_builders_cup",
-                config={"arm": True})
-```
-
-Start it alongside the agent and leave it running for the whole race. It is the only in-flight
-defence: between two 15-minute ticks it is the one thing that can stop a session filling at a
-negative spread, and it flips or kills the controller on its own.
-
-It ships `arm=False` so a first run observes rather than acts. **That default is for
-install-time testing, not for the race** - left at `False` it reports and never intervenes.
-
-**3. Set leverage on both venues.**
-
-`leverage: 3` in `strategy.md` is what the agent assumes, but the perp_xemm controller has no
-leverage field and cannot set it - it is an account-level setting on each venue.
-
-Cross-venue margin is not netted, so a large adverse move can liquidate the losing leg on one
-venue while the offsetting gain sits unrealised on the other. This is the one realistic way the
-account goes to zero.
-
----
-
-## Verifying
-
-```bash
-python verify_submission.py --api-url http://localhost:8000 \
-                            --user <u> --password <p> \
-                            --bot-image <YOUR_BOT_IMAGE>
-```
-
-Six checks, in the order things actually break:
-
-1. executor importable and registered in both images
-2. controller discoverable through the API
-3. a real controller config saves and reads back (incl. a negative exit edge)
-4. all four routines discovered by Condor's loader
-5. `basis_scanner` returns live candidates
-6. the bot image exists and carries the executor
-
-Everything is read-only except one controller config, which is deleted afterwards. It places
-no orders.
-
----
-
-## Venue facts the code depends on
-
-| | Hyperliquid | Binance |
-|---|---|---|
-| pair suffix | **`-USD`** | **`-USDT`** |
-| settles in | USDC | USDT |
-| funding | hourly | 4h or 8h, per symbol |
-
-`slot_plan` emits the exact connector/pair strings and the agent copies them verbatim, because
-a Binance-spelled pair on Hyperliquid is accepted by the API and then kills the connector with
-a `KeyError`.
-
----
-
-## What it does each tick (900s)
-
-```
-slot_plan  ->  urgent unwinds, then enters/adds, then normal unwinds (6 slots, ranked by carry)
-margin_book -> per-venue free margin = min(computed, venue-reported)
-agent      ->  sizes each line, deploys one controller per line
-fill_guard ->  between ticks: flips a bleeding session's resting venue, kills it if it bleeds again
-```
-
-Entry needs all three: `fundsig >= 0.3 bp/h`, `carry > 0`, `edge >= 5 bp`. Most pairs print the
-same funding on both venues and net to zero carry — holding two positions rather than six on a
-quiet day is correct behaviour, not a fault.

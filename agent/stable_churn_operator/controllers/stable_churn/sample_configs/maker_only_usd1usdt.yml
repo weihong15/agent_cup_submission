@@ -1,0 +1,31 @@
+# MAKER-ONLY: volume_target_usd 0 -> no takers at all (no schedule, no paced rebalance). The autonomous move when
+# taker fills are charged but maker fills are not (STATUS fee_bp_taker > 0, fee_bp_maker ~ 0). Makers keep churning
+# at the touch / one tick inside; backtest weekday maker-only volume with improve_inside ~$72-83k/h.
+# Set race_end_ts to the running bot's value before uploading.
+id: stable_churn_usd1_maker
+controller_name: stable_churn
+controller_type: generic
+connector_name: binance
+trading_pair: USD1-USDT
+volume_target_usd: 0
+size_all: true
+improve_inside: true
+clip_usd: 400
+rebalance_to: 0.9
+band_usd: 400
+behind_clips: 10
+taker_imbalance_max: 0.3
+imbalance_valve: 3
+max_fee_bps: 0.5
+max_drawdown_usd: 20
+bootstrap_pair: auto
+peg_low: 0.998
+peg_high: 1.002
+pause: false
+close_now: false
+tick_interval_s: 1.0
+race_end_ts: 0
+race_duration_s: 172800
+stop_lead_s: 900
+start_balanced: true
+close_at_end: false
