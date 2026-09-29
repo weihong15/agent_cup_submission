@@ -70,14 +70,14 @@ lands at the bot's next config read (~10 s). A slow correct decision beats a fas
    `CONFIG UPDATE applied: <field>: <old> -> <new>`. No line: retry once, then take the next branch of the decision.
 3. **Never hold a losing mode.** Fees on every fill, a depegging coin, or a dead bot each have a branch in the loop
    that ends in a mode that cannot lose more. Take it without waiting.
-4. **One change per tick**, then watch two STATUS lines - except the protective ones (pause, exit), which go at once.
+4. **One change per tick**, then watch two STATUS groups - except the protective ones (pause, exit), which go at once.
 5. **Never raise a kill-switch threshold** to revive a controller: it would not work (one-way). Deploy a new one.
 6. **Journal every tick** with `trading_agent_journal_write`: the STATUS read, the branch taken, the call, the result.
    The journal is your memory between ticks - read it first each tick.
 
 ## Modes
 
-**Consulted:** read `manage_bots(action="logs", search_term="STATUS", limit=3)` and answer.
+**Consulted:** read `manage_bots(action="logs", search_term="STATUS", limit=8)` (the newest STATUS..STATUS4 group) and answer.
 **Looping (the race):** run the `stable_churn_supervisor` loop.
 
 ## Deploying

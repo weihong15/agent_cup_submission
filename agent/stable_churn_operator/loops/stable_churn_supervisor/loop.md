@@ -45,9 +45,11 @@ Journal "DEPLOYED BOT with <config_name>", then continue with the tick below fro
 **1. Memory.** `trading_agent_journal_read` - the live bot/config, the mode (CHURN / MAKER_ONLY / FALLBACK / EXITED /
 STOOD_DOWN), your last change and when.
 
-**2. Read state.** `manage_bots(action="logs", bot_name=<bot>, search_term="STATUS", limit=3)`. Newest line:
-`state volume schedule vol_1h maker_share_1h target maker_share fees fee_bp_maker fee_bp_taker value pnl mid
-base_share hours_left`. Judge with the **_1h** fields and compare with the regime table in `stable_churn_knowledge`
+**2. Read state.** `manage_bots(action="logs", bot_name=BOT, search_term="STATUS", limit=8)`. The bot logs STATUS as
+four short lines every minute (Condor's log tool cuts messages at 80 characters, so one long line would lose fields);
+take the newest group:
+`STATUS state volume schedule` / `STATUS2 vol_1h maker_share_1h target` /
+`STATUS3 fees fee_bp_maker fee_bp_taker pnl` / `STATUS4 mid base_share value hours_left`. Judge with the **_1h** fields and compare with the regime table in `stable_churn_knowledge`
 section 2 - a quiet evening is not a fault.
 
 **3. Decide ONE branch - the first that matches wins.** Each points at a worked example in `stable_churn_knowledge`.

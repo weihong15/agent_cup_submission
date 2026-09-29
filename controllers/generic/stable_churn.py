@@ -11,8 +11,8 @@ So a dollar of volume costs at most half a tick (0.05 bp) and carries no crypto 
   * Guards: fee and drawdown kill-switches, peg band, reject backoff, supervisor pause / close_now switches. No end state
     by default (close_at_end false): it runs until stopped.
 
-Almost every field is live-updatable; the controller logs "CONFIG UPDATE applied" per change and a STATUS line every
-minute. Volume and fees are counted from executor fills, keyed by executor id, so pruned executors are never lost.
+Almost every field is live-updatable; the controller logs "CONFIG UPDATE applied" per change and four short STATUS
+lines every minute (each <= 77 chars: Condor's log tool cuts messages at 80). Volume and fees are counted from executor fills, keyed by executor id, so pruned executors are never lost.
 Live-tested on Binance 2026-09-29 (official hummingbot 2.17.0): 97% maker, zero fees.
 """
 from decimal import ROUND_DOWN, ROUND_HALF_UP, Decimal
@@ -283,7 +283,22 @@ class StableChurnController(ControllerBase):
         if now - self._last_status >= 60:
             self._last_status = now
             self._hist = [h for h in self._hist if now - h[0] <= 3660] + [(now, volume, self.processed_data["maker_volume"])]
-            self.logger().info(f"[{c.id}] STATUS " + " ".join(self.status_fields()))
+            for line in self.status_lines():
+                self.logger().info(line)
+
+    def status_lines(self) -> List[str]:
+        """STATUS as four short lines. Condor's manage_bots(action="logs") cuts every log message to 80 characters
+        (77 + "..."), and the supervisor reads STATUS through it - one long line lost fees, P&L and the peg. Each line
+        stays <= 77 characters even at worst-case values; read the newest STATUS..STATUS4 group."""
+        f = dict(kv.split("=", 1) for kv in self.status_fields() if "=" in kv)
+        if not f:
+            return ["STATUS state=STARTING"]
+        return [f"STATUS state={f['state']} volume={f['volume']} schedule={f['schedule']}",
+                f"STATUS2 vol_1h={f['vol_1h']} maker_share_1h={f['maker_share_1h']} target={f['target']}",
+                f"STATUS3 fees={f['fees']} fee_bp_maker={f['fee_bp_maker']} fee_bp_taker={f['fee_bp_taker']} "
+                f"pnl={f['pnl']}",
+                f"STATUS4 mid={f['mid']} base_share={f['base_share']} value={float(f['value']):.2f} "
+                f"hours_left={float(f['hours_left']):.1f}"]
 
     def status_fields(self) -> List[str]:
         """One machine-readable line for the supervisor agent (also in the Hummingbot `status` command)."""

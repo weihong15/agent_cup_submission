@@ -7,11 +7,14 @@ then logs one line per change, which is the only proof that a change took:
 [stable_churn_usd1] CONFIG UPDATE applied: taker_imbalance_max: 0.3 -> 0.5; pause: False -> True
 ```
 
-Every 60 s it also logs a machine-readable status line (the same fields show in Hummingbot's `status`):
+Every 60 s it also logs four short, machine-readable status lines (each <= 77 characters, because Condor's
+`manage_bots(action="logs")` cuts every message at 80; the same fields show in Hummingbot's `status`):
 
 ```
-[stable_churn_usd1] STATUS state=CHURNING volume=812345 schedule=820000 vol_1h=78210 maker_share_1h=0.934 target=3500000 maker_share=0.912 fees=0.0000 fee_bp_maker=0.000 fee_bp_taker=0.000
-  value=800.1234 pnl=+0.1234 mid=0.99971 base_share=0.498 hours_left=36.50
+STATUS state=CHURNING volume=812345 schedule=820000
+STATUS2 vol_1h=78210 maker_share_1h=0.934 target=3500000
+STATUS3 fees=0.0000 fee_bp_maker=0.000 fee_bp_taker=0.000 pnl=+0.1234
+STATUS4 mid=0.99971 base_share=0.498 value=800.12 hours_left=36.5
 ```
 `state` is one of CHURNING, PAUSED, DEPEG_HALT, CLOSING, KILLED_FEE, KILLED_DRAWDOWN.
 

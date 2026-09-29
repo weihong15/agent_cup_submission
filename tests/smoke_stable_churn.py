@@ -458,6 +458,18 @@ async def main():
     st = dict(kv.split("=", 1) for kv in ctl9.status_fields())
     assert {"state", "volume", "schedule", "vol_1h", "maker_share_1h", "target", "maker_share", "fees", "pnl", "mid",
             "hours_left"} <= set(st), st
+    # 9g. STATUS survives Condor's 80-char log cut: four lines, each <= 77 chars even at worst-case values
+    worst = mod.StableChurnController(mod.StableChurnConfig(start_balanced=False, id="a_long_controller_id_xyz"),
+                                      MDP(), asyncio.Queue())
+    worst.status_fields = lambda: ["state=KILLED_DRAWDOWN", "volume=99999999", "schedule=99999999",
+                                   "vol_1h=9999999", "maker_share_1h=0.000", "target=999999999", "maker_share=0.000",
+                                   "fees=1234.5678", "fee_bp_maker=12.345", "fee_bp_taker=12.345", "value=12345.678",
+                                   "pnl=-1234.5678", "mid=0.99977500", "base_share=1.000", "hours_left=999.99"]
+    lines = worst.status_lines()
+    assert len(lines) == 4 and all(len(x) <= 77 for x in lines), [(len(x), x) for x in lines]
+    assert all("fee_bp_maker=" in x for x in lines[2:3]) and "pnl=" in lines[2] and "mid=" in lines[3]
+    print("9g. STATUS as 4 lines, longest", max(len(x) for x in lines), "chars (Condor cuts at 80)")
+
     print("9. live updates: updatable applied / tick+pair ignored; target raise re-anchors (no jump);"
           " pause cancels + no debt + no burst on resume; close_now -> 50/50; STATUS line", st["state"])
 

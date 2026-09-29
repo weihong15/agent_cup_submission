@@ -29,7 +29,7 @@ Every `tick_interval_s` (1 s) on Binance spot USD1-USDT (0% maker and taker):
    - both wait until the level they would hit is <= `taker_imbalance_max` of top-of-book size (it is about to be
      consumed and tick our way), unless behind by more than `imbalance_valve` x behind_clips x clip.
    A same-side maker is stopped first (it locks the balance).
-6. **Accounting**: volume and fees per executor id (survive pruning); a STATUS log line every 60 s with rolling 1 h
+6. **Accounting**: volume and fees per executor id (survive pruning); four short STATUS lines every 60 s (Condor's log tool cuts messages at 80 chars) with rolling 1 h
    volume and maker share, and fees split into `fee_bp_maker` / `fee_bp_taker`.
 
 ## Non-blocking

@@ -39,7 +39,7 @@ the real controller loader, the smoke test, hummingbot-api's config validation, 
    `total_amount_quote: 800`, `risk_limits.max_position_size_quote: 800`.
 3. On its first tick the loop syncs the controller to the server (`manage_agent_controllers sync`), uploads the
    `race_usd1usdt` config and deploys it as its own bot (`manage_bots deploy`, with `max_global_drawdown_quote: 20`).
-   Every later tick it reads the bot's STATUS line and tunes live settings (`manage_bots update_config`). Any extra bot
+   Every later tick it reads the bot's STATUS lines and tunes live settings (`manage_bots update_config`). Any extra bot
    it needs (fallback pair, redeploy, exit) is named `<its bot>-<tag>`, inside Condor's ownership namespace.
 
 Verified against upstream condor: the loop loads through Condor's `StrategyStore`, its config validates as
