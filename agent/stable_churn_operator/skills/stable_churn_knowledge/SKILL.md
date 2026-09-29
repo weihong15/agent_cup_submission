@@ -68,11 +68,11 @@ USD1 is worth ~+$250-400 expected prize).
 
 ## 5. Worked examples (STATUS -> decision)
 
-Config names below are the race defaults: `bot_name` stable-churn-usd1, `config_name` stable_churn_usd1usdt.
+Names below: BOT is the bot `[CONTROLLER MODE]` names (new bots must be BOT-<tag>); `config_name` is stable_churn_usd1usdt.
 Every change is sent as
-`manage_bots(action="update_config", bot_name="stable-churn-usd1", config_name="stable_churn_usd1usdt",
+`manage_bots(action="update_config", bot_name=BOT, config_name="stable_churn_usd1usdt",
 config_data={"controller_type": "generic", "controller_name": "stable_churn", <field>: <value>}, confirm_override=true)`
-and verified with `manage_bots(action="logs", bot_name="stable-churn-usd1", search_term="CONFIG UPDATE", limit=2)`.
+and verified with `manage_bots(action="logs", bot_name=BOT, search_term="CONFIG UPDATE", limit=2)`.
 
 **A. Healthy - HOLD.**
 `state=CHURNING volume=1204311 schedule=1150220 vol_1h=83412 maker_share_1h=0.941 target=3500000 maker_share=0.902
@@ -99,9 +99,9 @@ Journal the numbers. At most one cut per 2 h; restore the target if the weekday 
 **E. Maker fills charged - leave the pair, then stand down if the fallback is charged too.** (loop row 4)
 `state=KILLED_FEE ... fees=1.9200 fee_bp_maker=7.500 fee_bp_taker=10.000 volume=2350 base_share=0.46 mid=0.99972`
 Maker fills pay 7.5 bp here; we earn at most 0.1 bp per round trip. Churning can only lose. Steps, one per tick:
-1. The killed controller ignores `close_now`, so deploy `exit_usd1usdt` (close_base_share 0: sell the USD1, keep USDT;
+1. The killed controller ignores `close_now`, so deploy `exit_usd1usdt` as BOT-exit (close_base_share 0: sell the USD1, keep USDT;
    one taker, ~$0.35 of fee). Mode EXITED.
-2. Deploy `fallback_usdcusdt` as bot `stable-churn-usdc` (starts from all USDT; its first maker buy gets USDC). It has
+2. Deploy `fallback_usdcusdt` as bot BOT-usdc (starts from all USDT; its first maker buy gets USDC). It has
    its own fee kill-switch after $2k. Mode FALLBACK.
 3. If STATUS of the fallback also shows `fee_bp_maker` > 0.02 (or KILLED_FEE): upsert a copy of `exit_usd1usdt` with
    `trading_pair: USDC-USDT, id: stable_churn_usdc_exit` via `manage_controllers(action="upsert", target="config")`,
@@ -114,7 +114,7 @@ Maker fills pay 7.5 bp here; we earn at most 0.1 bp per round trip. Churning can
 `fees=0.4000 fee_bp_maker=0.000 fee_bp_taker=10.000 maker_share_1h=0.88 state=CHURNING`
 Makers are still free, so keep them and drop every taker: `{"volume_target_usd": 0}` (no schedule -> no paced
 rebalance, no catch-up). Backtest maker-only weekday volume with improve_inside: ~$72-83k/h - most of the volume, none of
-the fee. If the controller was already KILLED_FEE, deploy `maker_only_usd1usdt` instead (fresh fee counters; its own
+the fee. If the controller was already KILLED_FEE, deploy `maker_only_usd1usdt` instead as BOT-maker (fresh fee counters; its own
 fills are all maker). Mode MAKER_ONLY.
 
 **F. Peg moving - stand aside, exit if it runs, re-enter when it settles.** (loop rows 2, 3, 7, 8)
@@ -128,7 +128,7 @@ The schedule re-anchored while you stood aside, so there is no catch-up burst.
 **G. Drawdown.** (loop rows 6, 9)
 `pnl=-10.40` and falling: `{"pause": true}`, and next tick find the cause: fees (E/E2), peg (F), otherwise mark noise
 of a thin moment. `state=KILLED_DRAWDOWN`: if `fee_bp_maker` and `fee_bp_taker` are ~0 and `mid` is inside
-0.9990-1.0010, the loss is a one-off - redeploy `race_usd1usdt` as a new bot `stable-churn-usd1-r2` with
+0.9990-1.0010, the loss is a one-off - redeploy `race_usd1usdt` as a new bot BOT-r2 with
 `max_drawdown_usd: 12` (upsert the config with that field), at most once per race. Otherwise deploy `exit_usd1usdt`
 toward the healthy coin and stay EXITED until row 8 holds.
 
@@ -149,4 +149,4 @@ state - the bot keeps churning until the organisers stop it.
 `race_end_ts`, so it does not chase the full target again with paid takers.
 
 **K. Bot gone.** No STATUS for 3 minutes and `manage_bots(action="status")` does not list it running: deploy the live
-config again as `<bot_name>-r<n>` with the remaining target (above). At most once per hour.
+config again as BOT-r<n> with the remaining target (above). At most once per hour.

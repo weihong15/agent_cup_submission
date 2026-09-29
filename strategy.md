@@ -59,8 +59,9 @@ About $3.5-3.9M of volume per 48 hours on $800, P&L between about -$3.5 and +$2.
 
 ## The agent
 
-A Condor agent (`agent/stable_churn_operator`) owns the controller and supervises it with no human in the loop. It
-never places orders. Every 5 minutes it reads the controller's STATUS line (volume vs schedule, last-hour maker share,
+The strategy runs inside Condor: the Condor agent `agent/stable_churn_operator` owns the controller, and its
+`stable_churn_supervisor` loop runs in Condor's controller mode - it deploys the controller as its own bot on the first
+tick and supervises it with no human in the loop. It never places orders. Every 5 minutes it reads the controller's STATUS line (volume vs schedule, last-hour maker share,
 fees split maker/taker, P&L, peg) and changes live settings. It is non-blocking: the controller decides every second
 inside the bot and keeps trading on its last settings while the agent thinks.
 

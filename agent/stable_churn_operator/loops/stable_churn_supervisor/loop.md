@@ -1,7 +1,7 @@
 ---
 name: Stable Churn Supervisor
-description: Loop that watches a running stable_churn controller and tunes it live - peg, fees, maker share,
-  volume vs schedule - to finish near the top on volume with P&L near zero.
+description: Controller-mode loop that deploys the stable_churn controller (a volume-churning algorithm for
+  stablecoins) and tunes it live - peg, fees, maker share, volume vs schedule - for maximum volume at P&L near zero.
 agent_key: null
 skills:
 - stable_churn_knowledge
@@ -9,10 +9,14 @@ skills:
 default_config:
   frequency_sec: 300
   execution_mode: loop
-  bot_name: stable-churn-usd1
+  restart_on_boot: true
+  bot_mode: bot
+  bot_name: ''
+  total_amount_quote: 800
   config_name: stable_churn_usd1usdt
   risk_limits:
-    max_drawdown_usd: 20
+    max_position_size_quote: 800
+    max_open_executors: 5
 default_trading_context: ''
 created_by: 0
 created_at: '2026-09-29T00:00:00Z'
@@ -20,8 +24,21 @@ created_at: '2026-09-29T00:00:00Z'
 
 # Stable Churn Supervisor
 
-Read `bot_name` and `config_name` from `[CURRENT CONFIG]` - or, after you switched mode, from your journal (the
-journal always names the bot and config that are live now). You act alone: no branch waits for a human.
+This loop runs in Condor's **controller mode**. `[CONTROLLER MODE]` names the bot you operate ("You operate the
+Hummingbot bot '<name>'") - call it **BOT**. Every bot you deploy must be BOT or BOT-<tag> (e.g. BOT-usdc, BOT-r2,
+BOT-exit); any other name is refused at the tool call. `config_name` is in `[CURRENT CONFIG]`; after a mode switch the
+journal names the bot and config that are live now. You act alone: no branch waits for a human.
+
+## First tick (and whenever BOT does not exist)
+
+If the journal is empty and `manage_bots(action="status")` does not list BOT running, deploy it:
+1. `manage_agent_controllers(action="status", name="stable_churn")`; if missing, `action="sync"`. If it reports drift,
+   sync again with `overwrite=true` after the preview - this loop authorizes it: the folder is the source of truth.
+2. `manage_agent_controllers(action="upload_config", name="stable_churn", sample="race_usd1usdt",
+   config_name=<config_name>)`.
+3. `manage_bots(action="deploy", bot_name=BOT, controllers_config=[<config_name>], max_global_drawdown_quote=20)`.
+Funding needs nothing from you: the config sells any other stablecoin into USDT and goes 50/50 on its first ticks.
+Journal "DEPLOYED BOT with <config_name>", then continue with the tick below from the next tick.
 
 ## Each tick
 
@@ -37,7 +54,7 @@ section 2 - a quiet evening is not a fault.
 
 | # | condition | action (example) |
 |---|---|---|
-| 1 | no STATUS line in the last 3 min | `manage_bots(action="status")`; bot gone or errored -> redeploy the live config as a new bot (K). At most once per hour |
+| 1 | no STATUS line in the last 3 min (and BOT was deployed earlier) | `manage_bots(action="status")`; bot gone or errored -> redeploy the live config as BOT-r<n> (K). At most once per hour |
 | 2 | `mid` < 0.9960 and below the previous tick (USD1 falling) | exit to USDT: `close_base_share=0, close_now=true` in one update (F). Mode EXITED |
 | 3 | `mid` > 1.0040 and above the previous tick (USDT falling) | exit to USD1: `close_base_share=1, close_now=true` (F). Mode EXITED |
 | 4 | state KILLED_FEE, or `fee_bp_maker` > 0.02 after $2k volume | maker fills are charged on this pair -> fee branch (E): exit, then FALLBACK; if the fallback is charged too, FEE_SIZED (never simply stop - see the table below) |

@@ -53,9 +53,9 @@ lands at the bot's next config read (~10 s). A slow correct decision beats a fas
    confirm_override=true)`. Only fields the `stable_churn_params` skill marks live.
 2. **Switch mode = deploy a shipped config as a NEW bot** (a killed controller stays killed; a new one starts fresh):
    stop the old one (`manage_bots(action="stop_controllers", bot_name, controller_names=[<config id>])`), then
-   `manage_agent_controllers(action="upload_config", name="stable_churn", sample=<sample>)` (set `race_end_ts` first:
-   copy it from `manage_bots(action="get_config")` of the old bot) and `manage_bots(action="deploy", bot_name=<new>,
-   controllers_config=[<config id>], max_global_drawdown_quote=20)`.
+   `manage_agent_controllers(action="upload_config", name="stable_churn", sample=<sample>)` and
+   `manage_bots(action="deploy", bot_name=BOT-<tag>, controllers_config=[<config id>], max_global_drawdown_quote=20)`.
+   New bots must be named BOT-<tag> (BOT is the bot `[CONTROLLER MODE]` names); Condor refuses any other name.
    **Set `volume_target_usd` to what is left** (old target - old STATUS `volume`) with
    `manage_controllers(action="upsert", target="config")` before deploying - a new controller counts from zero.
    Samples: `race_usd1usdt` (the churn), `maker_only_usd1usdt` (no takers), `fallback_usdcusdt` (same churn on
@@ -80,15 +80,8 @@ lands at the bot's next config read (~10 s). A slow correct decision beats a fas
 **Consulted:** read `manage_bots(action="logs", search_term="STATUS", limit=3)` and answer.
 **Looping (the race):** run the `stable_churn_supervisor` loop.
 
-## Deploying (start of the race)
+## Deploying
 
-Read the `controller_sources` skill, then:
-0. Funding needs nothing from you: the race sample has `bootstrap_pair: auto` (any USDC / FDUSD / USD1 that is not
-   one of the pair's coins is sold into USDT once) and `start_balanced` (then one market order to 50/50).
-1. `manage_agent_controllers(action="sync", name="stable_churn")`.
-2. If the organisers publish the end time, set `race_end_ts` in the `race_usd1usdt` sample (it only paces the
-   volume schedule; there is no end state - the bot runs until the organisers stop it), then `manage_agent_controllers(action="upload_config",
-   name="stable_churn", sample="race_usd1usdt", config_name="stable_churn_usd1usdt")`.
-3. `manage_bots(action="deploy", bot_name="stable-churn-usd1", controllers_config=["stable_churn_usd1usdt"],
-   max_global_drawdown_quote=20)`.
-Then start the `stable_churn_supervisor` loop.
+The `stable_churn_supervisor` loop runs in Condor's controller mode and deploys the controller itself on its first
+tick (see the loop's "First tick"): sync the owned controller, upload the `race_usd1usdt` sample, deploy it as BOT.
+Start the loop and it does the rest; the config converts any funding stablecoin and goes 50/50 by itself.

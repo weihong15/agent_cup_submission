@@ -1,8 +1,9 @@
 # Stable Churn
 
 A volume-churning algorithm for stablecoins: two-sided post-only market making at the touch of Binance spot
-**USD1/USDT** (0% maker and taker fees), supervised by an autonomous Condor agent. Strategy and evidence:
-[`strategy.md`](strategy.md).
+**USD1/USDT** (0% maker and taker fees). It runs **inside Condor, via the Condor agent `stable_churn_operator`**: the
+agent's loop runs in Condor's controller mode, deploys the Hummingbot V2 controller it owns, and supervises it with no
+human in the loop. Strategy and evidence: [`strategy.md`](strategy.md).
 
 Verified against the official **hummingbot v2.17.0** image, **hummingbot-api** main and **condor** main (2026-09-29):
 the real controller loader, the smoke test, hummingbot-api's config validation, and condor's agent checks.
@@ -29,7 +30,24 @@ the real controller loader, the smoke test, hummingbot-api's config validation, 
   see it.
 - No end time is needed: the bot has no end state and runs until it is stopped.
 
-## Run with hummingbot-api
+## Run inside Condor (the entry)
+
+1. Copy `agent/stable_churn_operator/` into condor's `agents/` (the agent ships the controller in
+   `controllers/stable_churn/` with its sample configs).
+2. Start the agent's `stable_churn_supervisor` loop on a server with a funded Binance spot account. Its
+   `default_config`: `execution_mode: loop`, every 300 s, `bot_mode: bot` (controller mode), `restart_on_boot: true`,
+   `total_amount_quote: 800`, `risk_limits.max_position_size_quote: 800`.
+3. On its first tick the loop syncs the controller to the server (`manage_agent_controllers sync`), uploads the
+   `race_usd1usdt` config and deploys it as its own bot (`manage_bots deploy`, with `max_global_drawdown_quote: 20`).
+   Every later tick it reads the bot's STATUS line and tunes live settings (`manage_bots update_config`). Any extra bot
+   it needs (fallback pair, redeploy, exit) is named `<its bot>-<tag>`, inside Condor's ownership namespace.
+
+Verified against upstream condor: the loop loads through Condor's `StrategyStore`, its config validates as
+`AgentConfig`, every bot name it uses passes Condor's ownership check, and its deploy passes Condor's risk engine.
+
+## Run the controller alone (testing, without Condor)
+
+### With hummingbot-api
 
 1. Copy `controllers/generic/stable_churn.py` to `bots/controllers/generic/` and
    `conf/controllers/stable_churn_usd1usdt.yml` to `bots/conf/controllers/`.
@@ -39,7 +57,7 @@ the real controller loader, the smoke test, hummingbot-api's config validation, 
     "controllers_config": ["stable_churn_usd1usdt.yml"], "headless": true}
    ```
 
-## Run with plain Hummingbot
+### With plain Hummingbot
 
 Mount `controllers/` as the instance's `controllers/`, `conf/controllers/` and `conf/scripts/` into its `conf/`, then:
 ```
@@ -47,12 +65,6 @@ start --script v2_with_controllers.py --conf conf_v2_stable_churn_race.yml
 ```
 or headless: `-e SCRIPT_CONFIG=conf_v2_stable_churn_race.yml -e HEADLESS_MODE=true` on the
 `hummingbot/hummingbot:version-2.17.0` image.
-
-## Run with the Condor agent
-
-Copy `agent/stable_churn_operator/` into condor's `agents/`. The agent syncs its controller
-(`manage_agent_controllers sync`), uploads the `race_usd1usdt` sample, deploys it with `manage_bots`, then runs the
-`stable_churn_supervisor` loop. See `agent/stable_churn_operator/AGENT.md`.
 
 ## Changing settings while it runs
 
