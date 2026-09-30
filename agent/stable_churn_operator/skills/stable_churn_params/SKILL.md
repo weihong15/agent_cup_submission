@@ -29,7 +29,6 @@ STATUS4 mid=0.99971 base_share=0.498 value=800.12 hours_left=36.5
 
 | Where the bot runs | How |
 |---|---|
-| Plain Hummingbot container (our live test) | `python3 set_param.py --yml <conf/controllers/X.yml> --log <logs/logs_<script>.log> field=value [...]` - atomic write, refuses fields that would be ignored, waits for the CONFIG UPDATE line |
 | hummingbot-api | `POST /controllers/bots/{bot_name}/{controller_config_name}/config` with body `{"field": value}` |
 | Condor agent | `manage_bots(action="update_config", bot_name=..., config_name=..., config_data={...}, confirm_override=true)` |
 

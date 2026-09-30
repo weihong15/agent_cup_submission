@@ -8,7 +8,7 @@ from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "controllers" / "generic"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "agent" / "stable_churn_operator" / "controllers" / "stable_churn"))
 import stable_churn as mod  # noqa: E402
 from hummingbot.core.data_type.common import PriceType, TradeType  # noqa: E402
 from hummingbot.strategy_v2.executors.order_executor.data_types import ExecutionStrategy  # noqa: E402

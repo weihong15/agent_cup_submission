@@ -91,7 +91,7 @@ applied by the running bot within ~10 s.
 | bootstrap_pair / start_balanced | auto / true | any stablecoin in, 50/50 on the first ticks |
 | close_at_end | false | no end state |
 
-Every field but the pair, cadence and start-up options changes live; see `docs/PARAMS.md`.
+Every field but the pair, cadence and start-up options changes live; see the agent's `stable_churn_params` skill.
 
 ## Not wash trading
 

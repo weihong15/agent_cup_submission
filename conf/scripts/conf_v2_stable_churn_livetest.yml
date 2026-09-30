@@ -1,3 +1,0 @@
-controllers_config:
-- stable_churn_livetest.yml
-script_file_name: v2_with_controllers.py
