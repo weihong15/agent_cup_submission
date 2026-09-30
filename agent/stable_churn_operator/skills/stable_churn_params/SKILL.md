@@ -76,7 +76,7 @@ The full decision table is the supervisor loop (`loops/stable_churn_supervisor/l
 | `fee_bp_taker` > 0.02, maker free | `volume_target_usd=0` (maker-only); if already killed, deploy `maker_only_usd1usdt` |
 | `mid` < 0.9960 falling / > 1.0040 rising | `close_base_share=0` (or 1) + `close_now=true`: hold only the healthy coin |
 | `mid` outside 0.9985-1.0015 | `pause=true`; re-enter after 1 h inside 0.9990-1.0010 |
-| KILLED_DRAWDOWN, fees and peg clean | redeploy fresh with `max_drawdown_usd: 12`, once |
+| KILLED_DRAWDOWN, fees and peg clean | redeploy fresh with `max_drawdown_usd: 12`, at most twice |
 | `maker_share_1h` < 0.60 for 2 ticks | `taker_imbalance_max=0.2`; still low an hour later with P&L falling -> target -15% |
 | ahead, maker_share_1h > 0.90, < 12 h left | target +5% (max twice) |
-| no STATUS for 3 min | redeploy with the remaining target |
+| newest STATUS time unchanged between two ticks (bot dead; `status` may still say running) | `stop_bot`, redeploy with the remaining target |

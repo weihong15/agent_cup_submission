@@ -36,7 +36,7 @@ If the journal is empty and `manage_bots(action="status")` does not list BOT run
    sync again with `overwrite=true` after the preview - this loop authorizes it: the folder is the source of truth.
 2. `manage_agent_controllers(action="upload_config", name="stable_churn", sample="race_usd1usdt",
    config_name=<config_name>)`.
-3. `manage_bots(action="deploy", bot_name=BOT, controllers_config=[<config_name>], max_global_drawdown_quote=20)`.
+3. `manage_bots(action="deploy", bot_name=BOT, controllers_config=[<config_name>], max_global_drawdown_quote=120)`.
 Funding needs nothing from you: the config sells any other stablecoin into USDT and goes 50/50 on its first ticks.
 Journal "DEPLOYED BOT with <config_name>", then continue with the tick below from the next tick.
 
@@ -56,12 +56,12 @@ section 2 - a quiet evening is not a fault.
 
 | # | condition | action (example) |
 |---|---|---|
-| 1 | no STATUS line in the last 3 min (and BOT was deployed earlier) | `manage_bots(action="status")`; bot gone or errored -> redeploy the live config as BOT-r<n> (K). At most once per hour |
+| 1 | the live bot is dead: its newest STATUS time is the SAME as at your previous tick (it logs one every 60 s), or it has logged no STATUS 10 min after deploy, or `manage_bots(status)` does not list it | `manage_bots(action="stop_bot", bot_name=<live bot>)`, then redeploy the live config as BOT-r<n> with the remaining target (K). At most once per hour |
 | 2 | `mid` < 0.9960 and below the previous tick (USD1 falling) | exit to USDT: `close_base_share=0, close_now=true` in one update (F). Mode EXITED |
 | 3 | `mid` > 1.0040 and above the previous tick (USDT falling) | exit to USD1: `close_base_share=1, close_now=true` (F). Mode EXITED |
 | 4 | state KILLED_FEE, or `fee_bp_maker` > 0.02 after $2k volume | maker fills are charged on this pair -> fee branch (E): exit, then FALLBACK; if the fallback is charged too, FEE_SIZED (never simply stop - see the table below) |
 | 5 | `fee_bp_taker` > 0.02 and `fee_bp_maker` <= 0.02 | only takers are charged -> `volume_target_usd=0` (maker-only, no takers) (E2). Mode MAKER_ONLY |
-| 6 | state KILLED_DRAWDOWN | drawdown branch (G): redeploy fresh if the peg and fees are clean, else exit |
+| 6 | state KILLED_DRAWDOWN | drawdown branch (G): redeploy fresh (BOT-r2, then BOT-r3: at most twice per race) if the peg and fees are clean, else exit |
 | 6b | state BACKOFF | the exchange is rejecting orders; the controller already waits 30 s -> 10 min between tries. HOLD; if it lasts 2 h, redeploy once (K) |
 | 7 | `mid` outside 0.9985-1.0015 (but not rows 2-3) | `pause=true` (F) |
 | 8 | mode EXITED or paused by you, and `mid` inside 0.9990-1.0010 for 12 ticks (1 h) | re-enter: `close_now=false, close_base_share=0.5, pause=false` (F) |
@@ -92,7 +92,8 @@ Between rows, use the lower target. In STOOD_DOWN only rows 1-3 apply (keep the 
 "generic", "controller_name": "stable_churn", <fields>}, confirm_override=true)`, then verify with
 `manage_bots(action="logs", bot_name, search_term="CONFIG UPDATE", limit=2)`. Mode switch: AGENT.md lever 2.
 
-**5. Journal** one line: STATUS read, row fired, call, confirmation, and the live bot/config/mode now.
+**5. Journal** one line: the newest STATUS time and its values, row fired, call, confirmation, and the live
+bot/config/mode now. Row 1 compares the newest STATUS time with the one you journaled last tick.
 
 ## Non-blocking
 The bot trades every second without you. A tick you skip or a slow decision costs nothing; a wrong change does.

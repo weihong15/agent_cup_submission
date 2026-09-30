@@ -128,8 +128,8 @@ The schedule re-anchored while you stood aside, so there is no catch-up burst.
 **G. Drawdown.** (loop rows 6, 9)
 `pnl=-10.40` and falling: `{"pause": true}`, and next tick find the cause: fees (E/E2), peg (F), otherwise mark noise
 of a thin moment. `state=KILLED_DRAWDOWN`: if `fee_bp_maker` and `fee_bp_taker` are ~0 and `mid` is inside
-0.9990-1.0010, the loss is a one-off - redeploy `race_usd1usdt` as a new bot BOT-r2 with
-`max_drawdown_usd: 12` (upsert the config with that field), at most once per race. Otherwise deploy `exit_usd1usdt`
+0.9990-1.0010, the loss is a one-off - redeploy `race_usd1usdt` as a new bot (BOT-r2, then BOT-r3) with
+`max_drawdown_usd: 12` (upsert the config with that field), at most TWICE per race. Worst case: $20 + $12 + $12. Otherwise deploy `exit_usd1usdt`
 toward the healthy coin and stay EXITED until row 8 holds.
 
 **H. Ahead late in the race - optional small raise.**
@@ -148,5 +148,10 @@ state - the bot keeps churning until the organisers stop it.
 `volume_target_usd` = old target - `volume` from the old controller's last STATUS (what is left), and the same
 `race_end_ts`, so it does not chase the full target again with paid takers.
 
-**K. Bot gone.** No STATUS for 3 minutes and `manage_bots(action="status")` does not list it running: deploy the live
-config again as BOT-r<n> with the remaining target (above). At most once per hour.
+**K. Bot dead.** Measured on upstream hummingbot + hummingbot-api: when the Hummingbot app stops inside its container
+(Hummingbot's own global-drawdown stop does exactly this), the container keeps running, `manage_bots(status)` still
+shows the controller as `running` (only its P&L columns turn `N/A`), and `manage_bots(logs, search_term="STATUS")` keeps
+returning the LAST STATUS group from before the stop. So never trust "running": the proof of life is a NEW STATUS
+time. Newest STATUS time unchanged since your previous tick (STATUS is logged every 60 s) -> the bot is dead:
+`manage_bots(action="stop_bot", bot_name=<live bot>)` (verified: it removes and archives a half-dead bot), then deploy
+the live config again as BOT-r<n> with the remaining target (above). At most once per hour.

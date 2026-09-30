@@ -29,7 +29,7 @@ Outside the agent: `strategy.md` (the write-up) and `tests/smoke_stable_churn.py
    Its `default_config`: `execution_mode: loop`, every 300 s, `bot_mode: bot` (controller mode), `restart_on_boot: true`,
    `total_amount_quote: 800`, `risk_limits.max_position_size_quote: 800`.
 3. On its first tick the loop syncs the controller to the server (`manage_agent_controllers sync`), uploads the
-   `race_usd1usdt` sample and deploys it as its own bot (`manage_bots deploy`, `max_global_drawdown_quote: 20`).
+   `race_usd1usdt` sample and deploys it as its own bot (`manage_bots deploy`, `max_global_drawdown_quote: 120`).
    Every later tick it reads the bot's four STATUS lines and tunes live settings (`manage_bots update_config`). Extra
    bots it may need (fallback pair, redeploy, exit) are named `<its bot>-<tag>`, inside Condor's ownership namespace.
 

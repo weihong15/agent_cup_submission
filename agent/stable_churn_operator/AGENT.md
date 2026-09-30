@@ -54,7 +54,7 @@ lands at the bot's next config read (~10 s). A slow correct decision beats a fas
 2. **Switch mode = deploy a shipped config as a NEW bot** (a killed controller stays killed; a new one starts fresh):
    stop the old one (`manage_bots(action="stop_controllers", bot_name, controller_names=[<config id>])`), then
    `manage_agent_controllers(action="upload_config", name="stable_churn", sample=<sample>)` and
-   `manage_bots(action="deploy", bot_name=BOT-<tag>, controllers_config=[<config id>], max_global_drawdown_quote=20)`.
+   `manage_bots(action="deploy", bot_name=BOT-<tag>, controllers_config=[<config id>], max_global_drawdown_quote=120)`.
    New bots must be named BOT-<tag> (BOT is the bot `[CONTROLLER MODE]` names); Condor refuses any other name.
    **Set `volume_target_usd` to what is left** (old target - old STATUS `volume`) with
    `manage_controllers(action="upsert", target="config")` before deploying - a new controller counts from zero.
