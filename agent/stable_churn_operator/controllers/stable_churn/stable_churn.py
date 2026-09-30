@@ -32,10 +32,10 @@ class StableChurnConfig(ControllerConfigBase):
     controller_name: str = "stable_churn"
 
     connector_name: str = Field("binance", description="Spot connector with a zero-fee stable pair.")
-    trading_pair: str = Field("USDC-USDT", description="Zero-fee stablecoin pair. Base is the starting asset.")
+    trading_pair: str = Field("USD1-USDT", description="Zero-fee stablecoin pair. Base is the starting asset.")
 
     volume_target_usd: Decimal = Field(
-        Decimal("3500000"), json_schema_extra={"is_updatable": True},
+        Decimal("2500000"), json_schema_extra={"is_updatable": True},
         description="Volume to reach by the end of the race. Worst-case cost = 0.05 bp x this.")
     clip_usd: Decimal = Field(
         Decimal("400"), json_schema_extra={"is_updatable": True},
@@ -87,7 +87,7 @@ class StableChurnConfig(ControllerConfigBase):
                                    "Normal 48 h P&L is within +/-$5 and price noise ~$0.13, so $20 never false-trips; it "
                                    "catches fees the fee field misses (e.g. a failed BNB conversion reads as 0).")
     bootstrap_pair: str = Field(
-        "", description="Funding in another stablecoin: 'auto' = at start, sell ALL of any USDC / FDUSD / USD1 that is not "
+        "auto", description="Funding in another stablecoin: 'auto' = at start, sell ALL of any USDC / FDUSD / USD1 that is not "
                         "one of this pair's coins into USDT (one market order each, on <COIN>-USDT), then the 50/50 "
                         "start. Or name one pair, e.g. 'USDC-USDT'. Empty = off (use off on an account that holds other "
                         "coins you want kept). The quote must be this controller's quote asset.")
@@ -95,9 +95,9 @@ class StableChurnConfig(ControllerConfigBase):
         True, description="At start (after any bootstrap), check the balances and bring the account to 50/50 in this "
                           "pair's two coins with one market order before quoting - e.g. an all-USDT deposit buys half "
                           "in USD1. Costs half a tick on half the account (~$0.002 on $800). Skipped during a depeg.")
-    peg_low: Decimal = Field(Decimal("0.9990"), json_schema_extra={"is_updatable": True},
+    peg_low: Decimal = Field(Decimal("0.998"), json_schema_extra={"is_updatable": True},
                              description="Halt trading if mid < this (depeg guard).")
-    peg_high: Decimal = Field(Decimal("1.0010"), json_schema_extra={"is_updatable": True},
+    peg_high: Decimal = Field(Decimal("1.002"), json_schema_extra={"is_updatable": True},
                               description="Halt trading if mid > this.")
     pause: bool = Field(
         False, json_schema_extra={"is_updatable": True},

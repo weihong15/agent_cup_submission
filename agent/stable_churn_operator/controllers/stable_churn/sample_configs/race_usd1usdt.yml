@@ -7,7 +7,7 @@ controller_name: stable_churn
 controller_type: generic
 connector_name: binance
 trading_pair: USD1-USDT
-volume_target_usd: 3500000   # re-optimised with improve_inside: lowest max regret (7.1%) across 8 scenario cells
+volume_target_usd: 2500000
 size_all: true
 improve_inside: true      # quote one tick inside when the spread is 2+ ticks (one side only at exactly 2)
 clip_usd: 400

@@ -24,22 +24,22 @@ range 1.7-4.4e5). So:
 - extra volume is worth buying up to **~0.05 bp per $** (= $1 per $200k), and that is exactly what one taker clip costs
   here (half a 0.1 bp tick). This is why the target sits just past the free maker volume and not far beyond it.
 - one P&L dollar moves the expected prize ~$50; one vote rank ~$250-300. Do not trade dollars of P&L for small volume.
-- the $3.5M target had the lowest max-regret across field scenarios (P(top 3) ~0.82). $4M lost in hot and cold fields.
+- target $2.5M: the makers carry more than that on their own; takers only fill quiet stretches.
 
 Worked value check: lowering the target by $500k saves at most $500k x 0.05 bp = **$2.50**, and gives up $500k of
 volume, which is worth ~$2.50 at lambda 2e5. **A target cut only pays when takers cost MORE than 0.05 bp**, i.e. when
 the maker share collapses and the takers are also adversely timed. That is rare; prefer taker-timing changes first.
 
-## 2. What normal looks like (final config, USD1/USDT, $3.5M, 1 s)
+## 2. What normal looks like (final config, USD1/USDT, $2.5M target, 1 s)
 
 | regime | vol_1h | maker_share_1h | cost, bp per $ | notes |
 |---|---|---|---|---|
-| busy weekday (Asia/EU hours) | $75-92k | 0.90-0.99 | +0.002..+0.009 | makers overshoot the schedule on their own |
-| weekday average (25 h) | $74-81k | 0.86-0.93 | -0.001..+0.006 | |
-| quiet US evening (Mon 21-00 UTC) | $72-74k | 0.65-0.77 | -0.004..-0.010 | 2-tick spreads rare (1.2-1.8% of time vs 3.4-4.6%) |
+| busy weekday (Asia/EU hours) | $74-84k | 0.99-1.00 | +0.002..+0.009 | makers overshoot the schedule on their own |
+| weekday average (25 h) | $67-75k | 0.96-0.98 | +0.001..+0.008 | |
+| quiet US evening (Mon 21-00 UTC) | ~$52k | 0.90-0.94 | -0.000..+0.004 | 2-tick spreads rare (1.2-1.8% of time vs 3.4-4.6%) |
 | worst single hours seen | ~$57k | 0.36-0.54 (before taker timing) | -0.03 | recovered within 1-3 h every time |
 
-Totals: ~$3.5-3.9M per 48 h, P&L between about -$3.5 and +$2. `pnl` in STATUS includes mark noise of ~$0.13 (the
+Totals: ~$3.1-3.4M per 48 h, P&L between about +$0.4 and +$2.7. `pnl` in STATUS includes mark noise of ~$0.13 (the
 peg wiggles a fraction of a bp); ignore moves under $0.50. `fees` must be ~0: Binance charges 0% maker and taker here.
 
 ## 3. What each parameter really does (measured)
@@ -47,7 +47,7 @@ peg wiggles a fraction of a bp); ignore moves under $0.50. `fees` must be ~0: Bi
 | field | effect in backtests | when to touch |
 |---|---|---|
 | `taker_imbalance_max` 0.3 | takers wait for a thin level. vs off (1.0), pessimistic cost: quiet -0.023 -> -0.010, weekday -0.005 -> -0.001, Sunday -0.015 -> -0.004 bp; volume unchanged. 0.15 was similar on average but worse on Sunday (-0.012) | 0.2 if maker_share_1h < 0.60 for 2 h; never below 0.15; back to 0.3 when > 0.80 |
-| `volume_target_usd` 3.5M | 3M vs 3.5M in quiet regimes: saves ~$2 per 48 h, loses $0.5M volume (a wash at lambda 2e5). 4M: -$0.9 more on weekdays pessimistic, and worse everywhere | see section 1; steps of 10-15%, at most one per 2 h |
+| `volume_target_usd` 2.5M | takers only fill quiet stretches | see section 1; steps of 10-15%, at most one per 2 h |
 | `rebalance_to` 0.9 | grid 0.5/0.75/0.9: 0.9 best at 1 s (the emptied side waits a whole second; a bigger refill = bigger next maker). 0.5 worst (P&L sum +0.33 vs +0.80) | leave |
 | `behind_clips` 10 | 2/5/10/20: 10 cheapest near target (busy 0.015 vs 0.019 bp at 5); 20 ~= 10 | leave |
 | `clip_usd` 400 | 200 ~= 400; 800 cannot fire (needs $800 free, never there at 50/50) | leave |
@@ -75,7 +75,7 @@ config_data={"controller_type": "generic", "controller_name": "stable_churn", <f
 and verified with `manage_bots(action="logs", bot_name=BOT, search_term="CONFIG UPDATE", limit=2)`.
 
 **A. Healthy - HOLD.**
-`state=CHURNING volume=1204311 schedule=1150220 vol_1h=83412 maker_share_1h=0.941 target=3500000 maker_share=0.902
+`state=CHURNING volume=1204311 schedule=1150220 vol_1h=83412 maker_share_1h=0.941 target=2500000 maker_share=0.902
 fees=0.0000 value=800.61 pnl=+0.61 mid=0.99974 base_share=0.51 hours_left=31.20`
 Ahead of schedule, maker share in the weekday band, fees 0, P&L inside noise. Journal: "HOLD - weekday regime, 4.7%
 ahead, maker 0.94." No call.
@@ -92,7 +92,7 @@ an hour, set it back to 0.3.
 
 **D. Still collapsed an hour after C - small target cut.**
 12 ticks later, maker_share_1h still 0.50-0.58 and `pnl` fell from -0.8 to -2.1 in that hour (takers costing > 0.05 bp).
-Cut 15%: `{"volume_target_usd": 2975000}`. The controller re-anchors: STATUS `schedule` must NOT jump down; it bends.
+Cut 15%: `{"volume_target_usd": 2125000}`. The controller re-anchors: STATUS `schedule` must NOT jump down; it bends.
 Journal the numbers. At most one cut per 2 h; restore the target if the weekday regime returns before the last
 12 h.
 
@@ -113,7 +113,7 @@ Maker fills pay 7.5 bp here; we earn at most 0.1 bp per round trip. Churning can
 **E2. Only takers charged - go maker-only on the same pair.** (loop row 5)
 `fees=0.4000 fee_bp_maker=0.000 fee_bp_taker=10.000 maker_share_1h=0.88 state=CHURNING`
 Makers are still free, so keep them and drop every taker: `{"volume_target_usd": 0}` (no schedule -> no paced
-rebalance, no catch-up). Backtest maker-only weekday volume with improve_inside: ~$72-83k/h - most of the volume, none of
+rebalance, no catch-up). Backtest maker-only volume with improve_inside: ~$43-85k/h - most of the volume, none of
 the fee. If the controller was already KILLED_FEE, deploy `maker_only_usd1usdt` instead as BOT-maker (fresh fee counters; its own
 fills are all maker). Mode MAKER_ONLY.
 
@@ -129,12 +129,12 @@ The schedule re-anchored while you stood aside, so there is no catch-up burst.
 `pnl=-10.40` and falling: `{"pause": true}`, and next tick find the cause: fees (E/E2), peg (F), otherwise mark noise
 of a thin moment. `state=KILLED_DRAWDOWN`: if `fee_bp_maker` and `fee_bp_taker` are ~0 and `mid` is inside
 0.9990-1.0010, the loss is a one-off - redeploy `race_usd1usdt` as a new bot (BOT-r2, then BOT-r3) with
-`max_drawdown_usd: 12` (upsert the config with that field), at most TWICE per race. Worst case: $20 + $12 + $12. Otherwise deploy `exit_usd1usdt`
+`max_drawdown_usd: 12` (upsert the FULL config with that field changed), at most TWICE per race. Worst case: $20 + $12 + $12. Otherwise deploy `exit_usd1usdt`
 toward the healthy coin and stay EXITED until row 8 holds.
 
 **H. Ahead late in the race - optional small raise.**
 `hours_left=10.5 volume=3310000 schedule=3120000 maker_share_1h=0.95` on a busy weekday morning.
-Makers are overshooting for free. Raise 5%: `{"volume_target_usd": 3675000}` (it re-anchors; the extra is spread over
+Makers are overshooting for free. Raise 5%: `{"volume_target_usd": 2625000}` (it re-anchors; the extra is spread over
 the remaining hours). At most twice per race. Never raise when maker_share_1h < 0.85.
 
 **I. Killed.** Never raise the threshold (it would not restart). KILLED_FEE -> example E / E2 by the fee split;
@@ -144,7 +144,7 @@ KILLED_DRAWDOWN -> example G.
 `{"race_end_ts": <unix s>}` (compute it; do not guess). It only re-paces the schedule (no jump); there is no end
 state - the bot keeps churning until the organisers stop it.
 
-**Every redeploy mid-race** (E, E2, G, K): a new controller counts volume from zero. Upsert its config with
+**Every redeploy mid-race** (E, E2, G, K): a new controller counts volume from zero. Upsert its FULL config (an upsert replaces every field) with
 `volume_target_usd` = old target - `volume` from the old controller's last STATUS (what is left), and the same
 `race_end_ts`, so it does not chase the full target again with paid takers.
 

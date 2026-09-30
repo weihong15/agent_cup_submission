@@ -30,11 +30,11 @@ order at the back almost never fills).
 
 | market | volume / h | maker share | cost, bp per $ |
 |---|---|---|---|
-| busy weekday | $75-92k | 90-99% | +0.002 to +0.009 |
-| weekday, 25 h | $74-81k | 86-93% | -0.001 to +0.006 |
-| quiet evening (held out) | $72-74k | 65-77% | -0.004 to -0.010 |
+| busy weekday | $74-84k | 99-100% | +0.002 to +0.009 |
+| weekday, 25 h | $67-75k | 96-98% | +0.001 to +0.008 |
+| quiet evening (held out) | ~$52k | 90-94% | -0.000 to +0.004 |
 
-About $3.5-3.9M of volume per 48 hours on $800, P&L between about -$3.5 and +$2.
+About $3.1-3.4M of volume per 48 hours on $800, P&L between about +$0.4 and +$2.7 (target $2.5M; 7 windows replayed).
 
 ## How it trades
 
@@ -43,7 +43,7 @@ About $3.5-3.9M of volume per 48 hours on $800, P&L between about -$3.5 and +$2.
 - **Every second:** one post-only order at the best bid and one at the best ask, each sized to all the balance that
   side can fund, re-posted when the touch moves; one tick inside a 2+ tick spread (one side only at exactly two ticks,
   so our own orders never meet).
-- **Only when behind** a straight-line volume schedule ($3.5M over 48 h, about what the makers carry for free): a
+- **Only when behind** a straight-line volume schedule ($2.5M over 48 h, below what the makers carry for free): a
   market order, and only across a thin level. When one side has sold out, one order moves 90% of the account back into
   it. A same-side resting order is freed first, because it locks the balance.
 - **No end state:** it runs until it is stopped; past 48 hours the schedule continues at the same pace.
@@ -82,7 +82,7 @@ applied by the running bot within ~10 s.
 | parameter | value | why |
 |---|---|---|
 | connector / pair | binance / USD1-USDT | 0% maker and taker; short queues for its flow |
-| volume_target_usd | 3,500,000 | pace over 48 h, about what the makers carry for free; live-tunable |
+| volume_target_usd | 2,500,000 | makers alone carry ~$3.0-3.4M; takers only fill a quiet stretch; live-tunable |
 | size_all / improve_inside | true / true | rest all balance; step inside a 2+ tick spread |
 | taker_imbalance_max | 0.3 | cross only a level under 30% of top-of-book size |
 | rebalance_to / behind_clips / clip_usd | 0.9 / 10 / 400 | refill an empty side; catch up only when far behind |

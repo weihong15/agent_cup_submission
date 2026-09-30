@@ -60,6 +60,15 @@ def creates(actions):
     return [a.executor_config for a in actions if isinstance(a, CreateExecutorAction)]
 
 
+# Test fixture: the scenarios below were written on USDC-USDT with no bootstrap and a +-10 bp peg band. The
+# controller's own defaults are the race config (checked in 0b); every scenario states its fixture explicitly.
+FIXTURE = dict(trading_pair="USDC-USDT", bootstrap_pair="", peg_low=Decimal("0.9990"), peg_high=Decimal("1.0010"))
+
+
+def Cfg(**kw):
+    return mod.StableChurnConfig(**{**FIXTURE, **kw})
+
+
 def stops(actions):
     return [a for a in actions if isinstance(a, StopExecutorAction)]
 
@@ -70,10 +79,18 @@ async def step(ctl):
 
 
 async def main():
-    cfg = mod.StableChurnConfig(start_balanced=False, id="sc", size_all=False)     # fixed-clip mode first
+    cfg = Cfg(start_balanced=False, id="sc", size_all=False)     # fixed-clip mode first
     mdp = MDP()
     ctl = mod.StableChurnController(cfg, mdp, asyncio.Queue())
     print("0. defaults: target", cfg.volume_target_usd, "clip", cfg.clip_usd, "band", cfg.band_usd)
+    # 0b. a partial config (an upsert replaces every field) must fall back to the race config, never another pair
+    import yaml
+    race = yaml.safe_load(open(Path(mod.__file__).parent / "sample_configs" / "race_usd1usdt.yml"))
+    bare = mod.StableChurnConfig(id="bare")
+    bad = {k: (getattr(bare, k), v) for k, v in race.items() if k != "id" and str(getattr(bare, k)) != str(v)
+           and not (isinstance(v, (int, float)) and float(getattr(bare, k)) == float(v))}
+    assert not bad, f"controller defaults differ from race_usd1usdt: {bad}"
+    print("0b. defaults == race_usd1usdt (a partial config lands on the race config)")
 
     # 1. start all USDC: only the SELL side may quote (a buy would push the tilt past the band)
     c = creates(await step(ctl))
@@ -151,7 +168,7 @@ async def main():
     print("7. close phase -> 50/50 from either side, then idle")
     # 7n. NO END STATE (race default, close_at_end=false): past the planned end it keeps quoting both sides and the
     #     volume schedule keeps growing at the same pace
-    cfgn = mod.StableChurnConfig(start_balanced=False, id="ne")
+    cfgn = Cfg(start_balanced=False, id="ne")
     assert cfgn.close_at_end is False
     mdpn = MDP()
     mdpn.conn.bal = {"USDC": Decimal("400"), "USDT": Decimal("400")}
@@ -168,7 +185,7 @@ async def main():
           f"{ctln.processed_data['target_now']:,.0f} > target {cfgn.volume_target_usd:,.0f}")
 
     # 7h. close with makers RESTING (the realistic bell): stop them first, then the taker, never stuck
-    cfgh = mod.StableChurnConfig(start_balanced=False, id="ch", size_all=True, close_at_end=True)
+    cfgh = Cfg(start_balanced=False, id="ch", size_all=True, close_at_end=True)
     mdph = MDP()
     mdph.conn.bal = {"USDC": Decimal("700"), "USDT": Decimal("100")}
     ctlh = mod.StableChurnController(cfgh, mdph, asyncio.Queue())
@@ -183,7 +200,7 @@ async def main():
     print("7h. close with makers resting: makers stopped first, then one taker SELL", c[0].amount, "toward 50/50")
 
     # 1s. START: check balances, one market order to 50/50, then churn. All-USDT deposit -> BUY half; then makers
-    cfgs = mod.StableChurnConfig(id="st")                             # start_balanced defaults to True
+    cfgs = Cfg(id="st")                             # start_balanced defaults to True
     mdps = MDP()
     mdps.conn.bal = {"USDC": Decimal("0"), "USDT": Decimal("800")}
     ctls = mod.StableChurnController(cfgs, mdps, asyncio.Queue())
@@ -199,7 +216,7 @@ async def main():
         x.execution_strategy == ExecutionStrategy.LIMIT_MAKER for x in c), c
     mdps2 = MDP()
     mdps2.conn.bal = {"USDC": Decimal("402"), "USDT": Decimal("398")}  # already ~50/50: no market order at all
-    c = creates(await step(mod.StableChurnController(mod.StableChurnConfig(id="st2"), mdps2, asyncio.Queue())))
+    c = creates(await step(mod.StableChurnController(Cfg(id="st2"), mdps2, asyncio.Queue())))
     assert not [x for x in c if x.execution_strategy == ExecutionStrategy.MARKET], c
     print("1s. start: all-USDT -> one market BUY", "~400", "-> waits -> two makers; already 50/50 -> no market order")
 
@@ -207,7 +224,7 @@ async def main():
     #     another failure doubles it; a fill resets
     mdpr = MDP()
     mdpr.conn.bal = {"USDC": Decimal("0"), "USDT": Decimal("800")}
-    ctlr = mod.StableChurnController(mod.StableChurnConfig(id="rj"), mdpr, asyncio.Queue())
+    ctlr = mod.StableChurnController(Cfg(id="rj"), mdpr, asyncio.Queue())
     assert creates(await step(ctlr))                                   # start rebalance order
     failed = lambda i: SimpleNamespace(**{**vars(ex(i, TradeType.BUY, False, active=False)), "close_type": mod.CloseType.FAILED})
     ctlr.executors_info = [failed("f1")]
@@ -226,7 +243,7 @@ async def main():
     print("1r. reject backoff: 2 failures -> 30 s pause (state=BACKOFF), 3 -> 60 s, a fill resets")
 
     # 7b. paced rebalance: all-USDT and behind schedule (by any amount) -> taker BUY half now; on schedule -> no taker
-    cfg3 = mod.StableChurnConfig(start_balanced=False, id="pr", size_all=False)
+    cfg3 = Cfg(start_balanced=False, id="pr", size_all=False)
     mdp3 = MDP()
     mdp3.conn.bal = {"USDC": Decimal("0"), "USDT": Decimal("800")}
     ctl3 = mod.StableChurnController(cfg3, mdp3, asyncio.Queue())
@@ -250,7 +267,7 @@ async def main():
         def ask_entries(self):
             return iter([SimpleNamespace(price=float(ASK), amount=self.aq)])
 
-    cfg7 = mod.StableChurnConfig(start_balanced=False, id="im", size_all=False)
+    cfg7 = Cfg(start_balanced=False, id="im", size_all=False)
     mdp7 = MDP()
     mdp7.conn.bal = {"USDC": Decimal("0"), "USDT": Decimal("800")}
     mdp7.ob = OB(1_000_000.0, 1_000_000.0)                  # 50% of the touch on the ask -> too thick to hit
@@ -275,7 +292,7 @@ async def main():
     print("7g. imbalance timing: thick ask -> taker held, maker rests; thin ask -> taker BUY; far behind -> valve fires")
 
     # 7i. fee split in STATUS: taker fills charged 10 bp, maker fills free -> fee_bp_taker 10, fee_bp_maker 0
-    cfgi = mod.StableChurnConfig(start_balanced=False, id="fs", max_fee_bps=1000)
+    cfgi = Cfg(start_balanced=False, id="fs", max_fee_bps=1000)
     mdpi = MDP()
     ctli = mod.StableChurnController(cfgi, mdpi, asyncio.Queue())
     ctli.executors_info = [ex("mk", TradeType.BUY, True, price=BID, filled=3000, active=False),
@@ -286,7 +303,7 @@ async def main():
     print("7i. fee split: maker", st["fee_bp_maker"], "bp, taker", st["fee_bp_taker"], "bp")
 
     # 7c. FEE KILL-SWITCH: zero fees keep trading; 10 bp charged on $3k -> stop everything, permanently
-    cfg4 = mod.StableChurnConfig(start_balanced=False, id="fk")
+    cfg4 = Cfg(start_balanced=False, id="fk")
     mdp4 = MDP(); mdp4.conn.bal = {"USDC": Decimal("400"), "USDT": Decimal("400")}
     ctl4 = mod.StableChurnController(cfg4, mdp4, asyncio.Queue())
     ctl4.executors_info = [ex("f1", TradeType.SELL, False, filled=3000, active=False, fees=0)]
@@ -300,7 +317,7 @@ async def main():
     print("7c. fee kill-switch: 0 fees trade on; 10 bp charged -> all stopped, never restarts")
 
     # 7d. improve_inside: 1-tick spread -> at the touch; 2 ticks -> ONE side steps in (no self-cross); 3 -> both
-    cfg5 = mod.StableChurnConfig(start_balanced=False, id="im", size_all=False)
+    cfg5 = Cfg(start_balanced=False, id="im", size_all=False)
     mdp5 = MDP(); mdp5.conn.bal = {"USDC": Decimal("400"), "USDT": Decimal("400")}
     ctl5 = mod.StableChurnController(cfg5, mdp5, asyncio.Queue())
     px = lambda acts: sorted((x.side.name, x.price) for x in creates(acts) if x.execution_strategy == ExecutionStrategy.LIMIT_MAKER)
@@ -315,7 +332,7 @@ async def main():
     print("7d. improve_inside: 1 tick -> touch; 2 ticks -> one side inside (no self-cross); 3 ticks -> both inside")
 
     # 7e. DRAWDOWN KILL-SWITCH: value $800 -> $785 keeps trading; -> $779 (> $20 down) stops forever
-    cfg6 = mod.StableChurnConfig(start_balanced=False, id="dd")
+    cfg6 = Cfg(start_balanced=False, id="dd")
     mdp6 = MDP(); mdp6.conn.bal = {"USDC": Decimal("400"), "USDT": Decimal("400")}
     ctl6 = mod.StableChurnController(cfg6, mdp6, asyncio.Queue())
     assert creates(await step(ctl6))                                         # baseline taken (~800.05)
@@ -330,7 +347,7 @@ async def main():
     print("7e. drawdown kill-switch: -$15 trades on; -$21 stops everything, never restarts")
 
     # 7f. BOOTSTRAP: USDC-only account with bootstrap_pair=USDC-USDT -> one market SELL of all USDC, then churn USD1
-    cfg7 = mod.StableChurnConfig(start_balanced=False, id="bs", trading_pair="USD1-USDT", bootstrap_pair="USDC-USDT")
+    cfg7 = Cfg(start_balanced=False, id="bs", trading_pair="USD1-USDT", bootstrap_pair="USDC-USDT")
     assert cfg7.update_markets({}) == {"binance": {"USD1-USDT", "USDC-USDT"}}
     mdp7 = MDP(); mdp7.conn.bal = {"USD1": Decimal("0"), "USDT": Decimal("0"), "USDC": Decimal("800")}
     ctl7 = mod.StableChurnController(cfg7, mdp7, asyncio.Queue())
@@ -347,10 +364,10 @@ async def main():
 
     # 7j. bootstrap_pair=auto: funded in ANY stablecoin. USDC + FDUSD -> sold into USDT one by one -> 50/50 start buys
     #     half USD1. On the USDC-USDT fallback, auto never sells the pair's own USDC.
-    cfgj = mod.StableChurnConfig(id="au", trading_pair="USD1-USDT", bootstrap_pair="auto")      # start_balanced on
+    cfgj = Cfg(id="au", trading_pair="USD1-USDT", bootstrap_pair="auto")      # start_balanced on
     assert cfgj.bootstrap_pairs() == ["USDC-USDT", "FDUSD-USDT"], cfgj.bootstrap_pairs()
     assert cfgj.update_markets({}) == {"binance": {"USD1-USDT", "USDC-USDT", "FDUSD-USDT"}}
-    assert mod.StableChurnConfig(id="a2", trading_pair="USDC-USDT", bootstrap_pair="auto").bootstrap_pairs() == [
+    assert Cfg(id="a2", trading_pair="USDC-USDT", bootstrap_pair="auto").bootstrap_pairs() == [
         "FDUSD-USDT", "USD1-USDT"]
     mdpj = MDP(); mdpj.conn.bal = {"USDC": Decimal("300"), "FDUSD": Decimal("500"), "USDT": Decimal("0")}
     ctlj = mod.StableChurnController(cfgj, mdpj, asyncio.Queue())
@@ -365,13 +382,13 @@ async def main():
     assert len(c) == 1 and c[0].trading_pair == "USD1-USDT" and c[0].side == TradeType.BUY and \
         c[0].execution_strategy == ExecutionStrategy.MARKET and Decimal("395") <= c[0].amount <= Decimal("400"), c
     mdpk = MDP(); mdpk.conn.bal = {"USD1": Decimal("400"), "USDT": Decimal("400")}              # pair coins only
-    ctlk = mod.StableChurnController(mod.StableChurnConfig(id="a3", trading_pair="USD1-USDT", bootstrap_pair="auto"),
+    ctlk = mod.StableChurnController(Cfg(id="a3", trading_pair="USD1-USDT", bootstrap_pair="auto"),
                                      mdpk, asyncio.Queue())
     assert creates(await step(ctlk)) == [] and ctlk._boot_done                # nothing to convert: no order
     print("7j. bootstrap auto: USDC then FDUSD sold into USDT, then one market BUY to 50/50; pair coins never sold")
 
     # 8. size_all (default): new makers take ALL available balance of their funding coin; existing ones not resized
-    cfg2 = mod.StableChurnConfig(start_balanced=False, id="sa")
+    cfg2 = Cfg(start_balanced=False, id="sa")
     assert cfg2.size_all
     mdp2 = MDP()
     mdp2.conn.bal = {"USDC": Decimal("400"), "USDT": Decimal("400")}
@@ -394,21 +411,21 @@ async def main():
     assert len(sells) == 1 and sells[0].amount >= Decimal("799"), c
     print("8. size_all: makers take all available balance (399/399, then 799 after a full flip); kept orders not resized")
     # 9. LIVE CONFIG UPDATES - exactly hummingbot's path: re-read yml -> Config(**yml) -> controller.update_config()
-    base_yml = dict(start_balanced=False, id="lu", size_all=True, trading_pair="USDC-USDT", volume_target_usd=3500000)
+    base_yml = dict(start_balanced=False, id="lu", size_all=True, trading_pair="USDC-USDT", volume_target_usd=2500000)
     mdp9 = MDP()
     mdp9.conn.bal = {"USDC": Decimal("400"), "USDT": Decimal("400")}
-    ctl9 = mod.StableChurnController(mod.StableChurnConfig(**base_yml), mdp9, asyncio.Queue())
+    ctl9 = mod.StableChurnController(Cfg(**base_yml), mdp9, asyncio.Queue())
     await step(ctl9)
     mdp9.t += 3600
     await ctl9.update_processed_data()
     s1 = ctl9.processed_data["target_now"]
     # 9a. updatable fields apply, non-updatable are ignored
-    ctl9.update_config(mod.StableChurnConfig(**{**base_yml, "taker_imbalance_max": "1.0", "band_usd": "300",
+    ctl9.update_config(Cfg(**{**base_yml, "taker_imbalance_max": "1.0", "band_usd": "300",
                                                 "tick_interval_s": 0.25, "trading_pair": "USD1-USDT"}))
     assert ctl9.config.taker_imbalance_max == Decimal("1.0") and ctl9.config.band_usd == Decimal("300")
     assert ctl9.config.tick_interval_s == 1.0 and ctl9.config.trading_pair == "USDC-USDT"
     # 9b. raising the target re-anchors: no jump now, the extra is spread over the remaining time
-    ctl9.update_config(mod.StableChurnConfig(**{**base_yml, "volume_target_usd": 7000000}))
+    ctl9.update_config(Cfg(**{**base_yml, "volume_target_usd": 7000000}))
     await ctl9.update_processed_data()
     s2 = ctl9.processed_data["target_now"]
     assert abs(s2 - s1) < 1, (s1, s2)
@@ -418,7 +435,7 @@ async def main():
     assert s3 - s2 > 2 * s1 * Decimal("0.99"), (s1, s2, s3)          # new pace ~ (7M - s1) / 46.75 h > 2x old
     # 9c. pause: cancels everything, places nothing; schedule does not build a debt while paused
     ctl9.executors_info = [ex("m1", TradeType.BUY, True, price=BID), ex("m2", TradeType.SELL, True, price=ASK)]
-    ctl9.update_config(mod.StableChurnConfig(**{**base_yml, "volume_target_usd": 7000000, "pause": True}))
+    ctl9.update_config(Cfg(**{**base_yml, "volume_target_usd": 7000000, "pause": True}))
     a = await step(ctl9)
     assert len(stops(a)) == 2 and not creates(a), a
     ctl9.executors_info = []
@@ -427,18 +444,18 @@ async def main():
     assert not creates(a), a
     debt = ctl9.processed_data["target_now"] - ctl9.processed_data["volume"]
     assert debt <= 1, debt
-    ctl9.update_config(mod.StableChurnConfig(**{**base_yml, "volume_target_usd": 7000000, "pause": False}))
+    ctl9.update_config(Cfg(**{**base_yml, "volume_target_usd": 7000000, "pause": False}))
     a = await step(ctl9)
     assert not [x for x in creates(a) if x.execution_strategy == ExecutionStrategy.MARKET], a   # no catch-up burst
     assert len(creates(a)) == 2, a                                                              # both makers back
     # 9d. close_now: straight to the 50/50 close (tilted account -> one taker toward 50/50), then back
     mdp9.conn.bal = {"USDC": Decimal("700"), "USDT": Decimal("100")}
-    ctl9.update_config(mod.StableChurnConfig(**{**base_yml, "volume_target_usd": 7000000, "close_now": True}))
+    ctl9.update_config(Cfg(**{**base_yml, "volume_target_usd": 7000000, "close_now": True}))
     a = await step(ctl9)
     c9 = creates(a)
     assert len(c9) == 1 and c9[0].side == TradeType.SELL and c9[0].execution_strategy == ExecutionStrategy.MARKET, c9
     assert "state=CLOSING" in " ".join(ctl9.status_fields())
-    ctl9.update_config(mod.StableChurnConfig(**{**base_yml, "volume_target_usd": 7000000, "close_now": False}))
+    ctl9.update_config(Cfg(**{**base_yml, "volume_target_usd": 7000000, "close_now": False}))
     assert "state=CHURNING" in " ".join(ctl9.status_fields())
     # 9f. EXIT a depegging base coin: close_base_share 0 + close_now works OUTSIDE the peg band (sells all base)
     mdp9.bid, mdp9.ask = Decimal("0.99500"), Decimal("0.99501")
@@ -446,11 +463,11 @@ async def main():
     ctl9.executors_info = []
     a = await step(ctl9)
     assert not creates(a), a                                          # plain depeg: stand aside
-    ctl9.update_config(mod.StableChurnConfig(**{**base_yml, "volume_target_usd": 7000000, "close_now": True,
+    ctl9.update_config(Cfg(**{**base_yml, "volume_target_usd": 7000000, "close_now": True,
                                                 "close_base_share": "0"}))
     c9 = creates(await step(ctl9))
     assert len(c9) == 1 and c9[0].side == TradeType.SELL and c9[0].amount >= Decimal("399"), c9
-    ctl9.update_config(mod.StableChurnConfig(**{**base_yml, "volume_target_usd": 7000000}))
+    ctl9.update_config(Cfg(**{**base_yml, "volume_target_usd": 7000000}))
     mdp9.bid, mdp9.ask = BID, ASK
     print("9f. depeg exit: close_base_share=0 + close_now sells ALL base even outside the peg band:", c9[0].amount)
 
@@ -459,7 +476,7 @@ async def main():
     assert {"state", "volume", "schedule", "vol_1h", "maker_share_1h", "target", "maker_share", "fees", "pnl", "mid",
             "hours_left"} <= set(st), st
     # 9g. STATUS survives Condor's 80-char log cut: four lines, each <= 77 chars even at worst-case values
-    worst = mod.StableChurnController(mod.StableChurnConfig(start_balanced=False, id="a_long_controller_id_xyz"),
+    worst = mod.StableChurnController(Cfg(start_balanced=False, id="a_long_controller_id_xyz"),
                                       MDP(), asyncio.Queue())
     worst.status_fields = lambda: ["state=KILLED_DRAWDOWN", "volume=99999999", "schedule=99999999",
                                    "vol_1h=9999999", "maker_share_1h=0.000", "target=999999999", "maker_share=0.000",

@@ -80,7 +80,7 @@ pair with `volume_target_usd` (maker-only if only takers are charged):
 
 | fee, bp per $ | target for the whole race | why (field model, expected prize) |
 |---|---|---|
-| <= 0.02 | 3,500,000 | normal - about $2,100 |
+| <= 0.02 | 2,500,000 | normal - about $2,100 |
 | 0.5 | 400,000 | about $325; stopping $0 |
 | 1 | 200,000 | about $120 |
 | 2 | 100,000 | about $33 |

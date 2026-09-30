@@ -50,7 +50,7 @@ supervisor's switches. Full table, ranges and playbook: the `stable_churn_params
 - The account must hold only this pair's two coins for `value`/`pnl` in STATUS to mean the account.
 
 ## Sample configs
-- `race_usd1usdt` - the race: $3.5M over 48 h. Set `race_end_ts` before uploading.
+- `race_usd1usdt` - the race: $2.5M target over 48 h (makers carry more for free). Set `race_end_ts` before uploading.
 - `fallback_usdcusdt` - same on USDC-USDT (longer queues, lower maker share).
 - `livetest_40usd` - 1 hour on a $40 book; every path fires.
 - `maker_only_usd1usdt` - no takers (volume_target_usd 0): the mode when only taker fills are charged.

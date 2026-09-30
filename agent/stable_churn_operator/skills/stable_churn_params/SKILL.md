@@ -19,7 +19,7 @@ Every 60 s it also logs four short, machine-readable status lines (each <= 77 ch
 
 ```
 STATUS state=CHURNING volume=812345 schedule=820000
-STATUS2 vol_1h=78210 maker_share_1h=0.934 target=3500000
+STATUS2 vol_1h=78210 maker_share_1h=0.934 target=2500000
 STATUS3 fees=0.0000 fee_bp_maker=0.000 fee_bp_taker=0.000 pnl=+0.1234
 STATUS4 mid=0.99971 base_share=0.498 value=800.12 hours_left=36.5
 ```
@@ -41,7 +41,7 @@ already set, the field is not updatable, or the bot is not running). Writing the
 
 | field | live? | race value | what it does | safe range / when to change |
 |---|---|---|---|---|
-| `volume_target_usd` | live | 3,500,000 | volume to reach by the planned end (it keeps going after). Changing it **re-anchors** the schedule: no jump, the difference is spread over the time left | 2.5M-4M. Lower if maker share stays < 60% for hours; raise only if we are ahead with maker share > 90% |
+| `volume_target_usd` | live | 2,500,000 | volume to reach by the planned end (it keeps going after). Changing it **re-anchors** the schedule: no jump, the difference is spread over the time left | 2.5M-4M. Lower if maker share stays < 60% for hours; raise only if we are ahead with maker share > 90% |
 | `taker_imbalance_max` | live | 0.3 | a taker only crosses when the level it hits is <= this share of top-of-book size | 0.15-0.5; 1.0 = off (old behaviour) |
 | `imbalance_valve` | live | 3 | ...unless behind schedule by more than this x behind_clips x clip ($12k) | 2-5 |
 | `behind_clips` | live | 10 | clips behind schedule before a catch-up taker | 5-20 |

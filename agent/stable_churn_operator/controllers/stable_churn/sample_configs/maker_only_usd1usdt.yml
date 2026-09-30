@@ -1,6 +1,6 @@
 # MAKER-ONLY: volume_target_usd 0 -> no takers at all (no schedule, no paced rebalance). The autonomous move when
 # taker fills are charged but maker fills are not (STATUS fee_bp_taker > 0, fee_bp_maker ~ 0). Makers keep churning
-# at the touch / one tick inside; backtest weekday maker-only volume with improve_inside ~$72-83k/h.
+# at the touch / one tick inside; backtest maker-only volume with improve_inside ~$43-85k/h (quiet to busy).
 # Set race_end_ts to the running bot's value before uploading.
 id: stable_churn_usd1_maker
 controller_name: stable_churn

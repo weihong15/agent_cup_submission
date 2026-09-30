@@ -58,6 +58,7 @@ lands at the bot's next config read (~10 s). A slow correct decision beats a fas
    New bots must be named BOT-<tag> (BOT is the bot `[CONTROLLER MODE]` names); Condor refuses any other name.
    **Set `volume_target_usd` to what is left** (old target - old STATUS `volume`) with
    `manage_controllers(action="upsert", target="config")` before deploying - a new controller counts from zero.
+   An upsert REPLACES the whole config: send every field of the uploaded sample, changing only yours.
    Samples: `race_usd1usdt` (the churn), `maker_only_usd1usdt` (no takers), `fallback_usdcusdt` (same churn on
    USDC/USDT), `exit_usd1usdt` (one market order to a chosen coin, then idle).
 

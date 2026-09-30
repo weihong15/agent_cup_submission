@@ -6,7 +6,7 @@ controller_name: stable_churn
 controller_type: generic
 connector_name: binance
 trading_pair: USD1-USDT
-volume_target_usd: 3500000
+volume_target_usd: 2500000
 size_all: true
 improve_inside: true
 clip_usd: 400
