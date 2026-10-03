@@ -522,10 +522,13 @@ class StableChurnController(ControllerBase):
         behind_far = pd["target_now"] - pd["volume"] > c.behind_clips * clip
         tside, tsize = None, clip
         total_val = base_val + quote_val
-        if behind_any and base_val < Decimal("6") and quote_val >= Decimal("12"):
-            tside, tsize = TradeType.BUY, min(quote_val, total_val * c.rebalance_to)   # all quote: buy back rebalance_to
-        elif behind_any and quote_val < Decimal("6") and base_val >= Decimal("12"):
-            tside, tsize = TradeType.SELL, min(base_val, total_val * c.rebalance_to)   # all base: sell rebalance_to
+        # never leave the side we move FROM under 12 (it would read "empty" (< 6) next tick and the rebalance would
+        # ping-pong; live 2026-10-03 on a $50 book). At race size this is exactly rebalance_to (800 x 0.9 < 800 - 12).
+        keep = Decimal("12")
+        if behind_any and base_val < Decimal("6") and quote_val >= Decimal("12") + keep:
+            tside, tsize = TradeType.BUY, min(quote_val - keep, total_val * c.rebalance_to)   # all quote: buy back
+        elif behind_any and quote_val < Decimal("6") and base_val >= Decimal("12") + keep:
+            tside, tsize = TradeType.SELL, min(base_val - keep, total_val * c.rebalance_to)   # all base: sell back
         elif behind_far:
             tside = TradeType.SELL if imb >= 0 else TradeType.BUY
         # Queue-imbalance timing: hold the taker (and keep the maker resting) until the level it would hit is thin,

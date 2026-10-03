@@ -360,6 +360,19 @@ async def main():
     assert creates(await step(ctl7)) == []                                    # this tick: sees no USDC left, marks done
     c = creates(await step(ctl7))                                             # next tick: churning starts
     assert c and all(x.trading_pair == "USD1-USDT" for x in c) and c[0].side == TradeType.BUY, c
+    # 7k. SMALL BOOK: a paced rebalance must leave >= $12 on the side it moves from, so it never ping-pongs ($50 live)
+    cfgk = Cfg(start_balanced=False, id="sb", size_all=False)
+    mdpk = MDP(); mdpk.conn.bal = {"USDC": Decimal("5"), "USDT": Decimal("45")}
+    ctlk2 = mod.StableChurnController(cfgk, mdpk, asyncio.Queue())
+    await step(ctlk2)                                  # t0: on schedule
+    mdpk.t += 60                                       # behind -> paced rebalance BUY
+    ck = [x for x in creates(await step(ctlk2)) if x.execution_strategy == ExecutionStrategy.MARKET]
+    assert len(ck) == 1 and ck[0].side == TradeType.BUY and ck[0].amount <= Decimal("33.5"), ck   # 45 - 12 = 33
+    mdpk.conn.bal = {"USDC": Decimal("38"), "USDT": Decimal("12")}; ctlk2.executors_info = []
+    mdpk.t += 60
+    ck2 = [x for x in creates(await step(ctlk2)) if x.execution_strategy == ExecutionStrategy.MARKET]
+    assert ck2 == [], ck2                              # 12 USDT left is not "empty": no rebalance back
+    print("7k. small book: rebalance leaves $12 on the source side -> no taker ping-pong")
     print("7f. bootstrap: sells all USDC once on USDC-USDT, waits, then quotes USD1-USDT (first maker BUY)")
 
     # 7j. bootstrap_pair=auto: funded in ANY stablecoin. USDC + FDUSD -> sold into USDT one by one -> 50/50 start buys

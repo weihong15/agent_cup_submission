@@ -1,7 +1,8 @@
-# stable_churn on Binance spot USD1/USDT - THE RACE CONFIG (operator chose USD1, 2026-09-28).
-# Evidence: weekday backtest (Mon 16 h) makers alone ~$2.2-2.8M/48h at a small profit; @ $3M
-# 48 h P&L ~ -$4..+$3 (1 s tick, 150 ms latency, both queue policies); stable every hour across sessions.
-# Funding: all-USDT (first maker BUY acquires USD1) or 50/50 USD1/USDT. From USDC-only it would sit idle.
+# stable_churn on Binance spot USD1/USDT - THE RACE CONFIG.
+# Evidence (7 replay windows, 1 s tick, 150 ms latency, both queue policies): ~$3.1-3.5M per 48 h on $800,
+# P&L about +$0.4..+$2.7. Live on Binance: fees $0, maker 83-97%.
+# Funding: any stablecoin in the Binance SPOT wallet. $800 USDC (the organisers' funding) is sold into USDT once
+# at start (bootstrap_pair: auto), then one market order goes 50/50 USD1/USDT.
 id: stable_churn_usd1
 controller_name: stable_churn
 controller_type: generic

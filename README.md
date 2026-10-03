@@ -34,7 +34,21 @@ Outside the agent: `strategy.md` (the write-up) and `tests/smoke_stable_churn.py
    bots it may need (fallback pair, redeploy, exit) are named `<its bot>-<tag>`, inside Condor's ownership namespace.
 
 Funding in any stablecoin works: the race config sells USDC / FDUSD into USDT once at start (`bootstrap_pair: auto`),
-then goes 50/50 with one order. There is no end state: it runs until stopped.
+then goes 50/50 with one order. **$800 USDC in the Binance Spot wallet is all it needs.** There is no end state: it runs
+until stopped.
+
+## Run as a plain Hummingbot V2 controller (no Condor)
+
+The controller carries every guard itself (fee and drawdown kill-switches, peg band, reject backoff, bootstrap), so it
+also runs standalone - without the agent's live tuning:
+
+1. `agent/stable_churn_operator/controllers/stable_churn/stable_churn.py` -> `bots/controllers/generic/` (hummingbot-api)
+   or `controllers/generic/` (Hummingbot).
+2. `agent/stable_churn_operator/controllers/stable_churn/sample_configs/race_usd1usdt.yml` -> `bots/conf/controllers/`
+   (or `conf/controllers/`).
+3. hummingbot-api: `POST /bot-orchestration/deploy-v2-controllers` with `controllers_config: ["race_usd1usdt.yml"]`
+   on a Binance spot credential (connector `binance`). Plain Hummingbot: `start --script v2_with_controllers.py` with a
+   script config listing `race_usd1usdt.yml`.
 
 Verified: a full local rehearsal on upstream condor + hummingbot-api (the loop synced, uploaded and deployed the
 controller on its first tick and supervised it; 0 ownership violations, zero fees), plus condor's own loop store,
